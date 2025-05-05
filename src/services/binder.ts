@@ -7,7 +7,7 @@ interface BinderRequest {
 }
 
 // Response interface for binder
-interface BinderResponse {
+export interface BinderResponse {
   id: string;
   name: string;
   cupboard_id: string;

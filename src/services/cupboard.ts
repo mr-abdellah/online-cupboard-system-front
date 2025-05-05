@@ -1,12 +1,30 @@
 import api from "./api";
 
+export interface Binder {
+  id: string;
+  name: string;
+  cupboard_id: string;
+  order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Cupboard {
+  id: string;
+  name: string;
+  order: number;
+  created_at: string;
+  updated_at: string;
+  binders: Binder[];
+}
+
 // Request interface for creating/updating cupboard
-interface CupboardRequest {
+export interface CupboardRequest {
   name: string;
 }
 
 // Response interface for cupboard
-interface CupboardResponse {
+export interface CupboardResponse {
   id: string;
   name: string;
   order: number;

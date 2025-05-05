@@ -44,8 +44,11 @@ interface FileTypeStatsResponse {
 }
 
 // Response interface for storage usage
-interface StorageUsageResponse {
-  used_space_documents: string; // e.g., "1.5 MB"
+export interface StorageUsageResponse {
+  free_space: string;
+  used_space: string;
+  total_space: string;
+  used_space_documents: string;
   storage_by_type: {
     pdf: string;
     image: string;
@@ -61,6 +64,13 @@ interface StorageUsageResponse {
     other: number;
   };
   total_documents: number;
+  file_type_stats: {
+    pdf: number;
+    image: number;
+    doc: number;
+    video: number;
+    other: number;
+  };
 }
 
 export async function getDocuments(): Promise<DocumentResponse[]> {
@@ -75,14 +85,10 @@ export async function getDocuments(): Promise<DocumentResponse[]> {
 export async function createDocument(
   formData: FormData
 ): Promise<DocumentResponse> {
-  try {
-    const response = await api.post("/documents", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return response.data;
-  } catch (error) {
-    throw new Error("Failed to create document");
-  }
+  const response = await api.post("/documents", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
 }
 
 export async function getDocument(

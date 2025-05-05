@@ -8,6 +8,7 @@ import Layout from "./components/layout";
 import UsersPage from "./pages/app/users";
 import ActivityLogsPage from "./pages/app/activity-logs";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import UploadDocument from "./pages/app/upload-document";
 
 const router = createBrowserRouter([
   {
@@ -38,6 +39,10 @@ const router = createBrowserRouter([
         element: <ActivityLogsPage />,
       },
       {
+        path: "upload-document",
+        element: <UploadDocument />,
+      },
+      {
         path: "",
         element: <DashboardPage />,
       },
@@ -50,7 +55,7 @@ const queryClient = new QueryClient();
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
         <RouterProvider router={router} />
         <Toaster />
       </ThemeProvider>

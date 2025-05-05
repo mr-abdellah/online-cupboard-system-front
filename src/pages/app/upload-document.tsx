@@ -1,0 +1,306 @@
+"use client";
+
+import type React from "react";
+
+import { useState, useEffect, useCallback } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useNavigate, useSearchParams } from "react-router";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { FiLoader } from "react-icons/fi";
+import { debounce } from "lodash";
+import { getCupboards } from "@/services/cupboard";
+import { createDocument, extractOcr } from "@/services/document";
+import {
+  documentSchema,
+  type DocumentFormValues,
+} from "@/components/upload/schemas/document-schema";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
+import DocumentForm from "@/components/upload/document-form";
+import OcrInfoPanel from "@/components/upload/ocr-info-panel";
+
+export default function UploadDocumentPage() {
+  const navigate = useNavigate();
+  const searchParams = useSearchParams()[0];
+
+  // Récupérer les paramètres d'URL
+  const cupboardIdParam = searchParams.get("cupboard_id");
+  const binderIdParam = searchParams.get("binder_id");
+
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedBinderId, setSelectedBinderId] = useState<string>(
+    binderIdParam || ""
+  );
+  const [selectedCupboardId, setSelectedCupboardId] = useState<string>(
+    cupboardIdParam || ""
+  );
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState<string>("");
+  const [ocrText, setOcrText] = useState<string>("");
+  const [isExtractingOcr, setIsExtractingOcr] = useState(false);
+
+  const form = useForm<DocumentFormValues>({
+    resolver: zodResolver(documentSchema) as any,
+    defaultValues: {
+      title: "",
+      description: "",
+      binder_id: binderIdParam || "",
+      is_searchable: true,
+      tags: [],
+    },
+  });
+
+  const { setValue, handleSubmit, control, reset } = form;
+
+  // Récupérer les armoires et classeurs
+  const { data: cupboards, isLoading: isLoadingCupboards } = useQuery({
+    queryKey: ["cupboards"],
+    queryFn: getCupboards,
+  });
+
+  // Effet pour définir le binder_id si le paramètre d'URL est présent
+  useEffect(() => {
+    if (binderIdParam) {
+      setValue("binder_id", binderIdParam);
+    }
+  }, [binderIdParam, setValue]);
+
+  // Effet pour trouver le cupboard_id correspondant au binder_id si nécessaire
+  useEffect(() => {
+    if (binderIdParam && !cupboardIdParam && cupboards) {
+      // Trouver l'armoire qui contient ce classeur
+      for (const cupboard of cupboards) {
+        // Vérifier si binders existe avant d'utiliser .some()
+        const binderExists = cupboard?.binders?.some(
+          (binder) => binder.id === binderIdParam
+        );
+        if (binderExists) {
+          setSelectedCupboardId(cupboard.id);
+          break;
+        }
+      }
+    }
+  }, [binderIdParam, cupboardIdParam, cupboards]);
+
+  const extractOcrFromFile = useCallback(
+    debounce(async (file: File | null) => {
+      if (!file) return;
+
+      // Vérifier si le fichier est une image ou un PDF
+      const isImageOrPdf = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "application/pdf",
+      ].includes(file.type);
+
+      if (!isImageOrPdf) return;
+
+      try {
+        setIsExtractingOcr(true);
+        const result = await extractOcr(file);
+        setOcrText(result.text);
+
+        // Si le titre n'est pas défini, utiliser les premiers mots du texte OCR comme titre
+        if (!getValue("title") && result.text) {
+          const suggestedTitle =
+            result.text.split(" ").slice(0, 5).join(" ").trim() + "...";
+          setValue("title", suggestedTitle);
+        }
+      } catch (error) {
+        console.log("Erreur lors de l'extraction OCR:", error);
+      } finally {
+        setIsExtractingOcr(false);
+      }
+    }, 1000),
+    [setValue]
+  );
+
+  // Mutation pour créer un document
+  const createDocumentMutation = useMutation({
+    mutationFn: createDocument,
+    onSuccess: () => {
+      toast.success("Document créé avec succès");
+      reset();
+      setFilePreview(null);
+      setSelectedFile(null);
+      setTags([]);
+      setTagInput("");
+      setOcrText("");
+      // Rediriger vers la page du classeur
+      if (selectedBinderId) {
+        navigate(`/dashboard?binder_id=${selectedBinderId}`);
+      } else {
+        navigate("/dashboard");
+      }
+    },
+    onError: (error: any) => {
+      toast.error("Erreur lors de la création du document");
+      console.log("error", error);
+    },
+  });
+
+  useEffect(() => {
+    if (selectedFile) {
+      extractOcrFromFile(selectedFile);
+    }
+
+    // Nettoyage
+    return () => {
+      extractOcrFromFile.cancel();
+    };
+  }, [selectedFile, extractOcrFromFile]);
+
+  // Fonction pour obtenir la valeur d'un champ
+  const getValue = (field: keyof DocumentFormValues) => {
+    return control._formValues[field];
+  };
+
+  // Gérer le changement de fichier
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+    setValue("file", file);
+
+    // Créer un aperçu du fichier
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setFilePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFilePreview(null);
+    }
+  };
+
+  // Gérer l'ajout de tags
+  const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && tagInput.trim()) {
+      e.preventDefault();
+      if (!tags.includes(tagInput.trim())) {
+        const newTags = [...tags, tagInput.trim()];
+        setTags(newTags);
+        setValue("tags", newTags);
+      }
+      setTagInput("");
+    }
+  };
+
+  // Gérer la suppression de tags
+  const handleRemoveTag = (tagToRemove: string) => {
+    const newTags = tags.filter((tag) => tag !== tagToRemove);
+    setTags(newTags);
+    setValue("tags", newTags);
+  };
+
+  // Gérer le changement d'armoire
+  const handleCupboardChange = (cupboardId: string) => {
+    setSelectedCupboardId(cupboardId);
+    setSelectedBinderId("");
+    setValue("binder_id", "");
+  };
+
+  // Gérer la soumission du formulaire
+  const onSubmit = async (data: DocumentFormValues) => {
+    const formData = new FormData();
+    formData.append("title", data.title);
+    if (data.description) formData.append("description", data.description);
+    formData.append("binder_id", data.binder_id);
+    formData.append("file", data.file);
+    formData.append("is_searchable", data.is_searchable ? "1" : "0");
+
+    if (data.tags && data.tags.length > 0) {
+      data.tags.forEach((tag, index) => {
+        formData.append(`tags[${index}]`, tag);
+      });
+    }
+
+    // Si du texte OCR a été extrait, l'ajouter aux données
+    if (ocrText) {
+      formData.append("ocr", ocrText);
+    }
+
+    await createDocumentMutation.mutateAsync(formData);
+  };
+
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-medium text-gray-800">
+          Télécharger un Document
+        </h1>
+
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={() => navigate(-1)}>
+            Retour
+          </Button>
+          <Button
+            onClick={handleSubmit(onSubmit as any)}
+            disabled={
+              form.formState.isSubmitting || createDocumentMutation.isPending
+            }
+            className="bg-[#3b5de7] hover:bg-[#2d4ccc]"
+          >
+            {form.formState.isSubmitting || createDocumentMutation.isPending ? (
+              <>
+                <FiLoader className="mr-2 h-4 w-4 animate-spin" />
+                Téléchargement...
+              </>
+            ) : (
+              "Télécharger le document"
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Colonne de gauche - Formulaire */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardContent className="p-6">
+              <DocumentForm
+                form={form}
+                cupboards={cupboards}
+                isLoadingCupboards={isLoadingCupboards}
+                selectedCupboardId={selectedCupboardId}
+                selectedBinderId={selectedBinderId}
+                tags={tags}
+                tagInput={tagInput}
+                selectedFile={selectedFile}
+                filePreview={filePreview}
+                handleCupboardChange={handleCupboardChange}
+                setSelectedBinderId={setSelectedBinderId}
+                setTagInput={setTagInput}
+                handleAddTag={handleAddTag}
+                handleRemoveTag={handleRemoveTag}
+                handleFileChange={handleFileChange}
+                setSelectedFile={setSelectedFile}
+                setFilePreview={setFilePreview}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Colonne de droite - Informations et aperçu OCR */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardContent className="p-6">
+              <h2 className="text-lg font-medium mb-4">Informations</h2>
+              <OcrInfoPanel
+                ocrText={ocrText}
+                isExtractingOcr={isExtractingOcr}
+                selectedFile={selectedFile}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

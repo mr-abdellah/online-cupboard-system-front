@@ -1,15 +1,21 @@
+"use client";
+
 import { useQuery } from "@tanstack/react-query";
 import { getStorageUsage } from "@/services/document";
-import {
-  FiHardDrive,
-  FiImage,
-  FiFile,
-  FiVideo,
-  FiFolder,
-} from "react-icons/fi";
+import { FiHardDrive } from "react-icons/fi";
+
+// Import des icônes depuis le dossier assets
+import pdfPng from "@/assets/pdf.png";
+import excelSvg from "@/assets/excel.svg";
+import imagePng from "@/assets/image.png";
+import videoPng from "@/assets/video.png";
+import wordSvg from "@/assets/word.svg";
 
 interface StorageUsageResponse {
-  used_space_documents: string; // e.g., "1.5 MB"
+  free_space: string;
+  used_space: string;
+  total_space: string;
+  used_space_documents: string;
   storage_by_type: {
     pdf: string;
     image: string;
@@ -25,53 +31,56 @@ interface StorageUsageResponse {
     other: number;
   };
   total_documents: number;
+  file_type_stats: {
+    pdf: number;
+    image: number;
+    doc: number;
+    video: number;
+    other: number;
+  };
 }
 
-// Function to parse human-readable storage values (e.g., "1.5 MB") back to bytes
-const parseBytes = (size: string): number => {
-  const [value, unit] = size.split(" ");
-  const numValue = parseFloat(value);
-  const units: Record<string, number> = {
-    B: 1,
-    KB: 1024,
-    MB: 1024 * 1024,
-    GB: 1024 * 1024 * 1024,
-    TB: 1024 * 1024 * 1024 * 1024,
+// Fonction pour calculer le pourcentage à partir des chaînes formatées
+const calculatePercentage = (part: string, total: string): number => {
+  // Fonction pour extraire la valeur numérique et l'unité
+  const extractValueAndUnit = (sizeStr: string) => {
+    const match = sizeStr.match(/^([\d.]+)\s*([KMGT]?B)$/i);
+    if (!match) return { value: 0, unit: "B" };
+
+    const value = Number.parseFloat(match[1]);
+    const unit = match[2].toUpperCase();
+    return { value, unit };
   };
-  return numValue * (units[unit] || 1);
-};
 
-// Function to calculate percentage based on total document storage
-const getPercentage = (type: string, data: StorageUsageResponse): number => {
-  const totalBytes = parseBytes(data.used_space_documents);
+  // Convertir en bytes pour comparer
+  const convertToBytes = (size: { value: number; unit: string }) => {
+    const units = {
+      B: 1,
+      KB: 1024,
+      MB: 1024 * 1024,
+      GB: 1024 * 1024 * 1024,
+      TB: 1024 * 1024 * 1024 * 1024,
+    };
+    return size.value * (units[size.unit as keyof typeof units] || 1);
+  };
+
+  const partSize = extractValueAndUnit(part);
+  const totalSize = extractValueAndUnit(total);
+
+  const partBytes = convertToBytes(partSize);
+  const totalBytes = convertToBytes(totalSize);
+
   if (totalBytes === 0) return 0;
-
-  let typeBytes = 0;
-  if (type === "image") {
-    typeBytes = parseBytes(data.storage_by_type.image);
-  } else if (type === "document") {
-    typeBytes =
-      parseBytes(data.storage_by_type.pdf) +
-      parseBytes(data.storage_by_type.doc);
-  } else if (type === "video") {
-    typeBytes = parseBytes(data.storage_by_type.video);
-  } else if (type === "other") {
-    typeBytes = parseBytes(data.storage_by_type.other);
-  }
-
-  return Math.round((typeBytes / totalBytes) * 100);
+  return Math.round((partBytes / totalBytes) * 100);
 };
 
 const StorageUsage = () => {
   const { data, isLoading, error } = useQuery<StorageUsageResponse>({
     queryKey: ["storageUsage"],
     queryFn: getStorageUsage,
-    retry: 1,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
   });
 
-  // Loading state
+  // État de chargement
   if (isLoading) {
     return (
       <div className="bg-white p-6 rounded-xl shadow-sm animate-pulse">
@@ -93,7 +102,7 @@ const StorageUsage = () => {
     );
   }
 
-  // Error state
+  // État d'erreur
   if (error) {
     return (
       <div className="bg-red-50 p-6 rounded-xl border border-red-100">
@@ -117,58 +126,85 @@ const StorageUsage = () => {
 
   if (!data) return null;
 
-  const { storage_by_type, used_space_documents, file_counts } = data;
+  const {
+    free_space,
+    used_space,
+    total_space,
+    storage_by_type,
+    file_type_stats,
+  } = data;
 
-  // Calculate percentages dynamically
-  const imagePercentage = getPercentage("image", data);
-  const docPercentage = getPercentage("document", data);
-  const videoPercentage = getPercentage("video", data);
-  const otherPercentage = getPercentage("other", data);
+  // Calculer les pourcentages
+  const usedPercentage = calculatePercentage(used_space, total_space);
+  const freePercentage = 100 - usedPercentage;
 
-  // Simulate total space and free space (since we removed disk_total_space)
-  const totalSpace = "500 GB"; // Based on your PC's capacity
-  const usedBytes = parseBytes(used_space_documents);
-  const totalBytes = parseBytes(totalSpace);
-  const freeBytes = totalBytes - usedBytes;
-  const freeSpace = (freeBytes / (1024 * 1024 * 1024)).toFixed(2) + " GB"; // Convert to GB
-  const freePercentage = Math.round((freeBytes / totalBytes) * 100);
+  // Calculer les pourcentages pour chaque type de fichier
+  const pdfPercentage = calculatePercentage(storage_by_type.pdf, total_space);
+  const imagePercentage = calculatePercentage(
+    storage_by_type.image,
+    total_space
+  );
+  const docPercentage = calculatePercentage(storage_by_type.doc, total_space);
+  const videoPercentage = calculatePercentage(
+    storage_by_type.video,
+    total_space
+  );
+  const otherPercentage = calculatePercentage(
+    storage_by_type.other,
+    total_space
+  );
 
-  // File types configuration
+  // Configuration des types de fichiers
   const fileTypes = [
     {
-      name: "Image",
-      icon: <FiImage className="text-green-500" />,
+      name: "PDF",
+      key: "pdf",
+      icon: pdfPng,
+      color: "bg-red-500",
+      lightColor: "bg-red-100",
+      percentage: pdfPercentage,
+      size: storage_by_type.pdf,
+      count: file_type_stats.pdf,
+    },
+    {
+      name: "Documents",
+      key: "doc",
+      icon: wordSvg,
+      color: "bg-yellow-500",
+      lightColor: "bg-yellow-100",
+      percentage: docPercentage,
+      size: storage_by_type.doc,
+      count: file_type_stats.doc,
+    },
+    {
+      name: "Images",
+      key: "image",
+      icon: imagePng,
       color: "bg-green-500",
       lightColor: "bg-green-100",
       percentage: imagePercentage,
       size: storage_by_type.image,
+      count: file_type_stats.image,
     },
     {
-      name: "Document",
-      icon: <FiFile className="text-yellow-500" />,
-      color: "bg-yellow-500",
-      lightColor: "bg-yellow-100",
-      percentage: docPercentage,
-      size: `${
-        (parseBytes(storage_by_type.pdf) + parseBytes(storage_by_type.doc)) /
-        (1024 * 1024)
-      } MB`,
-    },
-    {
-      name: "Video",
-      icon: <FiVideo className="text-blue-500" />,
+      name: "Vidéos",
+      key: "video",
+      icon: videoPng,
       color: "bg-blue-500",
       lightColor: "bg-blue-100",
       percentage: videoPercentage,
       size: storage_by_type.video,
+      count: file_type_stats.video,
     },
     {
-      name: "Others",
-      icon: <FiFolder className="text-pink-500" />,
+      name: "Autres",
+      key: "other",
+      icon: excelSvg,
       color: "bg-pink-500",
       lightColor: "bg-pink-100",
       percentage: otherPercentage,
       size: storage_by_type.other,
+      count: file_type_stats.other,
     },
   ];
 
@@ -177,33 +213,35 @@ const StorageUsage = () => {
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center">
           <FiHardDrive className="text-[#3b5de7] mr-2 text-xl" />
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Data Storage
+          <h3 className="text-lg font-semibold text-gray-800">
+            Stockage de Données
           </h3>
         </div>
         <div className="text-right bg-gray-50 px-3 py-1 rounded-full">
-          <span className="font-semibold text-[#3b5de7]">
-            {used_space_documents}
-          </span>
-          <span className="text-gray-500"> out of </span>
-          <span className="font-semibold text-gray-700 ">{totalSpace}</span>
-          <span className="text-gray-500"> used</span>
+          <span className="font-semibold text-[#3b5de7]">{used_space}</span>
+          <span className="text-gray-500"> sur </span>
+          <span className="font-semibold text-gray-700">{total_space}</span>
+          <span className="text-gray-500"> utilisés</span>
         </div>
       </div>
 
-      {/* File types with percentages */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Types de fichiers avec pourcentages */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         {fileTypes.map((type) => (
           <div
-            key={type.name}
+            key={type.key}
             className="p-4 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200"
           >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center">
-                <div className={`p-2 rounded-md ${type.lightColor} mr-3`}>
-                  {type.icon}
+                <div className={`p-2 rounded-md bg-white mr-3`}>
+                  <img
+                    src={type.icon || "/placeholder.svg"}
+                    alt={type.name}
+                    className="w-5 h-5"
+                  />
                 </div>
-                <span className="font-medium text-gray-700 ">{type.name}</span>
+                <span className="font-medium text-gray-700">{type.name}</span>
               </div>
               <span className="text-sm font-semibold bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
                 {type.percentage}%
@@ -215,17 +253,22 @@ const StorageUsage = () => {
                 style={{ width: `${type.percentage}%` }}
               ></div>
             </div>
-            <div className="text-right text-xs text-gray-500">{type.size}</div>
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-sm text-gray-500">
+                {type.count} fichiers
+              </span>
+              <span className="text-xs text-gray-500">{type.size}</span>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Remaining space */}
+      {/* Espace restant */}
       <div className="flex justify-between items-center mb-3">
         <div className="flex items-center">
-          <div className="w-3 h-3 bg-gray-200  rounded-full mr-2"></div>
+          <div className="w-3 h-3 bg-gray-200 rounded-full mr-2"></div>
           <span className="text-sm font-medium text-gray-600">
-            {freeSpace} remaining
+            {free_space} restants
           </span>
         </div>
         <span className="text-sm font-medium bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
@@ -233,12 +276,12 @@ const StorageUsage = () => {
         </span>
       </div>
 
-      {/* Global progress bar */}
+      {/* Barre de progression globale */}
       <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden p-0.5">
         <div className="flex h-full rounded-full overflow-hidden">
           {fileTypes.map((type) => (
             <div
-              key={type.name}
+              key={type.key}
               className={`h-full ${type.color}`}
               style={{ width: `${type.percentage}%` }}
               title={`${type.name}: ${type.percentage}%`}
