@@ -272,7 +272,6 @@ export default function UploadDocumentPage() {
                 cupboards={cupboards}
                 isLoadingCupboards={isLoadingCupboards}
                 selectedCupboardId={selectedCupboardId}
-                selectedBinderId={selectedBinderId}
                 tags={tags}
                 tagInput={tagInput}
                 selectedFile={selectedFile}

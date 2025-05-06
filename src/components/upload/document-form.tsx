@@ -22,10 +22,9 @@ import FileUploadField from "./file-upload-field";
 
 interface DocumentFormProps {
   form: UseFormReturn<DocumentFormValues>;
-  cupboards?: CupboardResponse[]; // Changé de Cupboard[] à CupboardResponse[]
+  cupboards?: CupboardResponse[];
   isLoadingCupboards: boolean;
   selectedCupboardId: string;
-  selectedBinderId: string;
   tags: string[];
   tagInput: string;
   selectedFile: File | null;
@@ -45,7 +44,6 @@ export default function DocumentForm({
   cupboards,
   isLoadingCupboards,
   selectedCupboardId,
-  selectedBinderId,
   tags,
   tagInput,
   selectedFile,
@@ -68,9 +66,6 @@ export default function DocumentForm({
 
   // Obtenir les classeurs de l'armoire sélectionnée
   const selectedCupboard = cupboards?.find((c) => c.id === selectedCupboardId);
-  const selectedBinder = cupboards?.find((c) =>
-    c.binders?.find((b) => b.id === selectedBinderId)
-  );
   const binders = selectedCupboard?.binders || [];
 
   return (
