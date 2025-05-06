@@ -213,7 +213,7 @@ const BinderFiles = () => {
         <div className="border-t border-gray-200">
           {/* En-tête de tableau */}
           <div className="grid grid-cols-12 gap-4 py-2 border-b border-gray-200 text-sm text-gray-500">
-            <div className="col-span-5 flex items-center">
+            <div className="col-span-3 flex items-center">
               <span>Nom</span>
               <button className="ml-1">
                 <svg
@@ -235,7 +235,29 @@ const BinderFiles = () => {
               </button>
             </div>
 
-            <div className="col-span-5 flex items-center">
+            <div className="col-span-3 flex items-center">
+              <span>Type</span>
+              <button className="ml-1">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="text-gray-400"
+                >
+                  <path
+                    d="M6 9L12 15L18 9"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="col-span-3 flex items-center">
               <span>Tags</span>
               <button className="ml-1">
                 <svg
@@ -256,6 +278,8 @@ const BinderFiles = () => {
                 </svg>
               </button>
             </div>
+
+            <div className="col-span-3 flex items-center"></div>
           </div>
 
           {/* Liste des fichiers */}
@@ -288,8 +312,8 @@ const BinderFiles = () => {
                 }`}
                 onClick={() => canView && handlePreviewDocument(doc)}
               >
-                <div className="col-span-5 flex items-center">
-                  <div className="w-8 h-8 mr-3 flex items-center justify-center relative">
+                <div className="col-span-3 flex items-center">
+                  <div className="size-12 mr-3 flex items-center justify-center relative">
                     <img
                       src={getFileIcon(doc.type) || "/placeholder.svg"}
                       alt={doc.type}
@@ -309,6 +333,13 @@ const BinderFiles = () => {
                     {doc.title}
                   </span>
                 </div>
+                <div className="col-span-3 flex items-center">
+                  <div className="w-8 h-8 mr-3 flex items-center justify-center relative">
+                    <span className="text-sm font-medium truncate">
+                      {doc.type}
+                    </span>
+                  </div>
+                </div>
                 <div className="col-span-3 text-sm text-gray-500">
                   <div className="text-xs">
                     {doc.tags && doc.tags.length > 0
@@ -317,7 +348,7 @@ const BinderFiles = () => {
                   </div>
                 </div>
 
-                <div className="col-span-1 flex justify-end relative">
+                <div className="col-span-3 flex items-end justify-end relative ">
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       asChild

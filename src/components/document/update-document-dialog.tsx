@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import type React from "react";
+
+import { useState, useEffect } from "react";
 import { updateDocument } from "@/services/document";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { XIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 
 interface UpdateDocumentDialogProps {
   document: any | null;
@@ -32,22 +36,20 @@ export function UpdateDocumentDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isSearchable, setIsSearchable] = useState(true);
-  const [tags, setTags] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
   const queryClient = useQueryClient();
 
   // Initialize form values when document changes or dialog opens
-  useState(() => {
+  useEffect(() => {
     if (document) {
       setTitle(document.title || "");
       setDescription(document.description || "");
       setIsSearchable(document.is_searchable || false);
-      setTags(
-        document.tags && Array.isArray(document.tags)
-          ? document.tags.join(", ")
-          : ""
-      );
+      setTags(Array.isArray(document.tags) ? [...document.tags] : []);
+      setTagInput("");
     }
-  });
+  }, [document, open]);
 
   const updateDocumentMutation = useMutation({
     mutationFn: (data: { id: string; payload: any }) =>
@@ -55,6 +57,7 @@ export function UpdateDocumentDialog({
     onSuccess: () => {
       // Invalidate and refetch the binder query to update the UI
       queryClient.invalidateQueries({ queryKey: ["binder"] });
+      queryClient.invalidateQueries({ queryKey: ["document", document?.id] });
       onOpenChange(false);
       setIsUpdating(false);
     },
@@ -69,21 +72,32 @@ export function UpdateDocumentDialog({
 
     setIsUpdating(true);
 
-    // Convert comma-separated tags to array
-    const tagsArray = tags
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag) => tag.length > 0);
-
     updateDocumentMutation.mutate({
       id: document.id,
       payload: {
         title,
         description: description || null,
-        tags: tagsArray,
+        tags: tags,
         is_searchable: isSearchable,
       },
     });
+  };
+
+  const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && tagInput.trim()) {
+      e.preventDefault();
+
+      // Check if tag already exists
+      if (!tags.includes(tagInput.trim())) {
+        setTags([...tags, tagInput.trim()]);
+      }
+
+      setTagInput("");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
   return (
@@ -105,6 +119,9 @@ export function UpdateDocumentDialog({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Titre du document"
             />
+            {title.trim() === "" && (
+              <p className="text-sm text-red-500">Le titre est requis</p>
+            )}
           </div>
 
           <div className="grid gap-2">
@@ -119,22 +136,49 @@ export function UpdateDocumentDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="tags">Tags (séparés par des virgules)</Label>
+            <Label htmlFor="tags">Tags</Label>
             <Input
               id="tags"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="tag1, tag2, tag3"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleAddTag}
+              placeholder="Ajoutez des tags et appuyez sur Entrée"
             />
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {tags.map((tag) => (
+                  <Badge
+                    key={tag}
+                    variant="secondary"
+                    className="flex items-center gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      className="text-blue-700 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 ml-1 rounded-full hover:bg-blue-200/50 p-0.5"
+                    >
+                      <XIcon size={14} />
+                      <span className="sr-only">Supprimer le tag {tag}</span>
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label htmlFor="searchable">Document recherchable</Label>
+              <p className="text-sm text-gray-500">
+                Permet de retrouver ce document via la recherche
+              </p>
+            </div>
             <Switch
               id="searchable"
               checked={isSearchable}
               onCheckedChange={setIsSearchable}
             />
-            <Label htmlFor="searchable">Document recherchable</Label>
           </div>
         </div>
 

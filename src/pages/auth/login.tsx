@@ -90,9 +90,7 @@ export default function LoginPage() {
 
         {/* Contenu principal */}
         <div className="relative z-10 flex flex-col justify-center px-12 text-white">
-          <h2 className="text-3xl font-bold mb-4">
-            Conçu pour les Particuliers
-          </h2>
+          <h2 className="text-3xl font-bold mb-4">Media Docs</h2>
           <p className="text-white/80 mb-8">
             Consultez vos analyses et gérez vos données à distance, depuis
             n'importe où !

@@ -303,9 +303,9 @@ const StorageUsage = () => {
             {fileTypes.map((type) => (
               <div
                 key={type.key}
-                className={`h-full ${type.color}`}
-                style={{ width: `${type.percentage}%` }}
-                title={`${type.name}: ${type.percentage}%`}
+                className={`h-full w-20 ${type.color}`}
+                style={{ width: `${type.percentage + 10}%` }}
+                title={`${type.name}: ${type.percentage + 10}%`}
               ></div>
             ))}
           </div>
