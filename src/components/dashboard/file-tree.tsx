@@ -217,6 +217,22 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
     }
   }, [selectedItem, data, expandedCupboards]);
 
+  useEffect(() => {
+    if (debouncedSearchQuery || typeFilter) {
+      // Expand all cupboards when there is a search or filter
+      setExpandedCupboards((prev) => {
+        const newExpanded = { ...prev };
+        data?.forEach((cupboard) => {
+          newExpanded[cupboard.id] = true;
+        });
+        return newExpanded;
+      });
+    } else {
+      // Optionally reset to collapsed state when no search/filter
+      setExpandedCupboards({});
+    }
+  }, [debouncedSearchQuery, typeFilter, data]);
+
   // Trier les armoires par ordre
   const sortedCupboards = data
     ? [...data].sort((a, b) => a.order - b.order)

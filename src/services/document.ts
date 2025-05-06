@@ -9,7 +9,7 @@ interface DocumentUpdateRequest {
 }
 
 // Response interface for document
-interface DocumentResponse {
+export interface DocumentResponse {
   id: string;
   title: string;
   description: string | null;
@@ -27,6 +27,22 @@ interface DocumentResponse {
     user_id: string;
     permission: string;
   }>;
+}
+
+export interface ShowDocumentResponse {
+  id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  ocr: string | null;
+  tags: string[];
+  binder_id: string;
+  path: string;
+  order: number;
+  is_searchable: boolean;
+  created_at: string;
+  updated_at: string;
+  permissions?: Array<string>;
 }
 
 // Response interface for OCR extraction
@@ -93,7 +109,7 @@ export async function createDocument(
 
 export async function getDocument(
   documentId: string
-): Promise<DocumentResponse> {
+): Promise<ShowDocumentResponse> {
   try {
     const response = await api.get(`/documents/${documentId}`);
     return response.data;
@@ -135,28 +151,14 @@ export async function extractOcr(file: File): Promise<OcrResponse> {
   }
 }
 
-export async function displayDocument(documentId: string): Promise<Blob> {
-  try {
-    const response = await api.get(`/documents/${documentId}/display`, {
-      responseType: "blob",
-    });
-    return response.data;
-  } catch (error) {
-    throw new Error("Failed to display document");
-  }
-}
-
-export async function searchDocuments(
-  query: string
-): Promise<DocumentResponse[]> {
-  try {
-    const response = await api.get(
-      `/documents/search?query=${encodeURIComponent(query)}`
-    );
-    return response.data;
-  } catch (error) {
-    throw new Error("Failed to search documents");
-  }
+export async function displayDocument(documentId: string): Promise<string> {
+  const response = await api.get(`/documents/${documentId}/display`, {
+    responseType: "blob",
+  });
+  const blob = new Blob([response.data], {
+    type: response.headers["content-type"],
+  });
+  return URL.createObjectURL(blob);
 }
 
 export async function getFileTypeStats(): Promise<FileTypeStatsResponse> {
@@ -174,5 +176,28 @@ export async function getStorageUsage(): Promise<StorageUsageResponse> {
     return response.data;
   } catch (error) {
     throw new Error("Failed to fetch storage usage");
+  }
+}
+
+export async function downloadDocument(documentId: string): Promise<void> {
+  try {
+    const response = await api.get(`/documents/${documentId}/download`, {
+      responseType: "blob",
+    });
+    const blob = new Blob([response.data], {
+      type: response.headers["content-type"],
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download =
+      response.headers["content-disposition"]?.match(/filename="(.+)"/)?.[1] ||
+      `document-${documentId}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    throw new Error("Failed to download document");
   }
 }

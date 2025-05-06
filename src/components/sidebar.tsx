@@ -41,7 +41,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       icon: <FiActivity size={20} />,
     },
     {
-      name: "Upload document",
+      name: "Importer un document",
       path: "/upload-document",
       icon: <FiUpload size={20} />,
     },
