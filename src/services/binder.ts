@@ -81,3 +81,17 @@ export async function deleteBinder(binderId: string): Promise<void> {
     throw new Error("Failed to delete binder");
   }
 }
+
+export async function changeBinderCupboard(
+  binderId: string,
+  cupboardId: string
+): Promise<BinderResponse> {
+  try {
+    const response = await api.patch(`/binders/${binderId}/change-cupboard`, {
+      cupboard_id: cupboardId,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Failed to change binder cupboard");
+  }
+}

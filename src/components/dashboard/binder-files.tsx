@@ -8,6 +8,7 @@ import {
   FiUpload,
   FiLock,
   FiEdit,
+  FiFolder,
 } from "react-icons/fi";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -18,6 +19,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -31,6 +33,7 @@ import LockSvg from "@/assets/lock.svg";
 import { DeleteDocumentDialog } from "../document/delete-document-dialog";
 import { UpdateDocumentDialog } from "../document/update-document-dialog";
 import { DocumentPreviewSheet } from "../document/document-preview-sheet";
+import { MoveDocumentDialog } from "../document/move-document-dialog";
 
 // Supprimer les props et utiliser useSearchParams à la place
 const BinderFiles = () => {
@@ -56,6 +59,7 @@ const BinderFiles = () => {
   // State for dialogs
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] =
     useState<DocumentResponse | null>(null);
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
@@ -106,6 +110,11 @@ const BinderFiles = () => {
   const handleUpdateDocument = (document: any) => {
     setSelectedDocument(document);
     setUpdateDialogOpen(true);
+  };
+
+  const handleMoveDocument = (document: any) => {
+    setSelectedDocument(document);
+    setMoveDialogOpen(true);
   };
 
   const handlePreviewDocument = (document: any) => {
@@ -322,7 +331,7 @@ const BinderFiles = () => {
                     {!canView && (
                       <div className="absolute inset-0 flex items-center justify-center bg-gray-100/60 rounded">
                         <img
-                          src={LockSvg}
+                          src={LockSvg || "/placeholder.svg"}
                           alt="Locked"
                           className="w-4 h-4 opacity-80"
                         />
@@ -412,20 +421,33 @@ const BinderFiles = () => {
                             <FiEdit className="mr-2" size={14} />
                             <span>Modifier</span>
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="flex items-center cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMoveDocument(doc);
+                            }}
+                          >
+                            <FiFolder className="mr-2" size={14} />
+                            <span>Déplacer</span>
+                          </DropdownMenuItem>
                         </>
                       )}
 
                       {canDelete && (
-                        <DropdownMenuItem
-                          className="flex items-center text-red-500 cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteDocument(doc);
-                          }}
-                        >
-                          <FiTrash2 className="mr-2" size={14} />
-                          <span>Supprimer</span>
-                        </DropdownMenuItem>
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="flex items-center text-red-500 cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteDocument(doc);
+                            }}
+                          >
+                            <FiTrash2 className="mr-2" size={14} />
+                            <span>Supprimer</span>
+                          </DropdownMenuItem>
+                        </>
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -448,6 +470,14 @@ const BinderFiles = () => {
         document={selectedDocument}
         open={updateDialogOpen}
         onOpenChange={setUpdateDialogOpen}
+      />
+
+      <MoveDocumentDialog
+        documentId={selectedDocument?.id || null}
+        documentTitle={selectedDocument?.title || null}
+        currentBinderId={binderId}
+        open={moveDialogOpen}
+        onOpenChange={setMoveDialogOpen}
       />
 
       <DocumentPreviewSheet

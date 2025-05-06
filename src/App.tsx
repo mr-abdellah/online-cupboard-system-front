@@ -10,6 +10,7 @@ import ActivityLogsPage from "./pages/app/activity-logs";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import UploadDocument from "./pages/app/upload-document";
 import DocumentPermissionsPage from "./pages/app/document-permissions";
+import ProfilePage from "./pages/app/profile";
 
 const router = createBrowserRouter([
   {
@@ -46,6 +47,10 @@ const router = createBrowserRouter([
       {
         path: "document/:document_id/permissions",
         element: <DocumentPermissionsPage />,
+      },
+      {
+        path: "profile",
+        element: <ProfilePage />,
       },
       {
         path: "",

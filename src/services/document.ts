@@ -201,3 +201,13 @@ export async function downloadDocument(documentId: string): Promise<void> {
     throw new Error("Failed to download document");
   }
 }
+
+export async function changeDocumentBinder(
+  documentId: string,
+  binderId: string
+): Promise<DocumentResponse> {
+  const response = await api.put(`/documents/${documentId}/change-binder`, {
+    binder_id: binderId,
+  });
+  return response.data;
+}
