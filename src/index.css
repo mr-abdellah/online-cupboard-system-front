@@ -124,3 +124,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+html,
+body {
+  pointer-events: auto !important;
+}

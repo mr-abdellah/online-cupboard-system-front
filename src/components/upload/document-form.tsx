@@ -68,6 +68,9 @@ export default function DocumentForm({
 
   // Obtenir les classeurs de l'armoire sélectionnée
   const selectedCupboard = cupboards?.find((c) => c.id === selectedCupboardId);
+  const selectedBinder = cupboards?.find((c) =>
+    c.binders?.find((b) => b.id === selectedBinderId)
+  );
   const binders = selectedCupboard?.binders || [];
 
   return (

@@ -38,13 +38,16 @@ export interface CupboardResponse {
   }>;
 }
 
-export async function getCupboards(): Promise<CupboardResponse[]> {
-  try {
-    const response = await api.get("/cupboards");
-    return response.data;
-  } catch (error) {
-    throw new Error("Failed to fetch cupboards");
-  }
+export async function getCupboards(
+  searchQuery?: string,
+  typeFilter?: string
+): Promise<CupboardResponse[]> {
+  const params: { query?: string; type?: string } = {};
+  if (searchQuery) params.query = searchQuery;
+  if (typeFilter) params.type = typeFilter;
+
+  const response = await api.get("/cupboards", { params });
+  return response.data;
 }
 
 export async function createCupboard(

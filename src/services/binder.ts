@@ -14,7 +14,11 @@ export interface BinderResponse {
   order: number;
   created_at: string;
   updated_at: string;
-  cupboard?: { id: string; name: string; order: number };
+  cupboard?: {
+    id: string;
+    name: string;
+    order: number;
+  };
   documents?: Array<{
     id: string;
     title: string;
@@ -25,6 +29,7 @@ export interface BinderResponse {
     binder_id: string;
     path: string;
     is_searchable: boolean;
+    permissions: ["view", "edit", "delete", "download"];
   }>;
 }
 

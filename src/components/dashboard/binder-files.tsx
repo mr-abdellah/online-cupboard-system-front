@@ -3,12 +3,11 @@
 import {
   FiMoreVertical,
   FiDownload,
-  FiShare2,
   FiTrash2,
   FiEye,
-  FiUpload,
   FiPlus,
   FiLock,
+  FiEdit,
 } from "react-icons/fi";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -27,13 +26,22 @@ import pdfPng from "@/assets/pdf.png";
 import imagePng from "@/assets/image.png";
 import videoPng from "@/assets/video.png";
 import wordSvg from "@/assets/word.svg";
+import lockSvg from "@/assets/lock.svg";
 
-// Supprimer les props et utiliser useSearchParams à la place
+// Modifier le composant BinderFiles pour ajouter la navigation
 const BinderFiles = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const binderId = searchParams.get("binder_id");
   const cupboardId = searchParams.get("cupboard_id");
+
+  // Fonction pour rediriger vers la page d'upload avec les paramètres
+  const handleAddNewFile = () => {
+    const queryParams = new URLSearchParams();
+    if (binderId) queryParams.append("binder_id", binderId);
+    if (cupboardId) queryParams.append("cupboard_id", cupboardId);
+    navigate(`/upload-document?${queryParams.toString()}`);
+  };
 
   // Déplacer la requête useQuery ici
   const {
@@ -50,12 +58,20 @@ const BinderFiles = () => {
   const documents = binder?.documents || [];
 
   // Fonction pour sélectionner/désélectionner un fichier
-  const toggleFileSelection = (fileId: string) => {
+  const toggleFileSelection = (fileId: string, hasViewPermission: boolean) => {
+    // Ne pas permettre la sélection si l'utilisateur n'a pas la permission de voir
+    if (!hasViewPermission) return;
+
     if (selectedFiles.includes(fileId)) {
       setSelectedFiles(selectedFiles.filter((id) => id !== fileId));
     } else {
       setSelectedFiles([...selectedFiles, fileId]);
     }
+  };
+
+  // Vérifier si l'utilisateur a une permission spécifique pour un document
+  const hasPermission = (document: any, permission: string): boolean => {
+    return document.permissions?.includes(permission) || false;
   };
 
   // Obtenir l'icône en fonction du type de fichier
@@ -84,29 +100,23 @@ const BinderFiles = () => {
   };
 
   // Formater la taille du fichier (simulée car non fournie dans les données)
-  const getFileSize = (path: string) => {
-    // Simulation de taille basée sur la longueur du chemin
-    const size = (path.length % 10) + 0.5;
-    return `${size.toFixed(1)} MB`;
-  };
+  // const getFileSize = (path: string) => {
+  //   // Simulation de taille basée sur la longueur du chemin
+  //   const size = (path.length % 10) + 0.5;
+  //   return `${size.toFixed(1)} MB`;
+  // };
 
-  // Formater la date (simulée car non fournie dans les données)
-  const getFormattedDate = (createdAt: string) => {
-    const date = new Date(createdAt);
-    return date.toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const handleUploadFile = () => {
-    navigate(
-      `/upload-document?cupboard_id=${cupboardId}&binder_id=${binderId}`
-    );
-  };
+  // // Formater la date (simulée car non fournie dans les données)
+  // const getFormattedDate = (createdAt: string) => {
+  //   const date = new Date(createdAt);
+  //   return date.toLocaleDateString("fr-FR", {
+  //     day: "2-digit",
+  //     month: "2-digit",
+  //     year: "2-digit",
+  //     hour: "2-digit",
+  //     minute: "2-digit",
+  //   });
+  // };
 
   // État de chargement
   if (isLoading) {
@@ -168,16 +178,16 @@ const BinderFiles = () => {
     <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100 h-full">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-gray-800">
-          {binder?.name
-            ? `Fichiers du Classeur : ${binder.name}`
-            : "Fichiers du Classeur"}
+          {binder?.name ? `Fichiers: ${binder.name}` : "Fichiers du Classeur"}
         </h3>
-        <button
-          onClick={handleUploadFile}
-          className="text-[#3b5de7] hover:text-[#2d4ccc] bg-blue-50 p-2 rounded-md hover:bg-blue-100 transition-colors"
-        >
-          <FiUpload size={18} />
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={handleAddNewFile}
+            className="text-[#3b5de7] hover:text-[#2d4ccc] p-1 rounded-md hover:bg-blue-50 transition-colors"
+          >
+            <FiPlus size={18} />
+          </button>
+        </div>
       </div>
 
       {documents.length === 0 ? (
@@ -188,7 +198,10 @@ const BinderFiles = () => {
             className="mx-auto mb-2 w-12 h-12 opacity-40"
           />
           <p className="text-sm">Aucun fichier dans ce classeur</p>
-          <button className="mt-2 text-[#3b5de7] text-sm hover:underline">
+          <button
+            onClick={handleAddNewFile}
+            className="mt-2 text-[#3b5de7] text-sm hover:underline"
+          >
             Ajouter un fichier
           </button>
         </div>
@@ -282,77 +295,119 @@ const BinderFiles = () => {
           </div>
 
           {/* Liste des fichiers */}
-          {documents.map((doc) => (
-            <div
-              key={doc.id}
-              className={`grid grid-cols-12 gap-4 py-4 border-b border-gray-100 items-center ${
-                selectedFiles.includes(doc.id)
-                  ? "bg-[#f0f4ff]"
-                  : "hover:bg-gray-50"
-              }`}
-              onClick={() => toggleFileSelection(doc.id)}
-            >
-              <div className="col-span-5 flex items-center">
-                <div className="w-8 h-8 mr-3 flex items-center justify-center">
-                  <img
-                    src={getFileIcon(doc.type) || "/placeholder.svg"}
-                    alt={doc.type}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <span className="text-sm font-medium truncate">
-                  {doc.title}
-                </span>
-              </div>
-              <div className="col-span-3 text-sm text-gray-500">
-                <div>
-                  {/* {getFormattedDate(doc.created_at || binder?.created_at || "")} */}
-                </div>
-                <div className="text-xs">
-                  {doc.tags && doc.tags.length > 0
-                    ? doc.tags.join(", ")
-                    : "Aucun tag"}
-                </div>
-              </div>
-              <div className="col-span-3 text-sm text-gray-500">
-                {getFileSize(doc.path)}
-              </div>
-              <div className="col-span-1 flex justify-end relative">
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    asChild
-                    onClick={(e) => e.stopPropagation()}
+          {documents.map((doc) => {
+            const hasViewPerm = hasPermission(doc, "view");
+            const hasEditPerm = hasPermission(doc, "edit");
+            const hasDeletePerm = hasPermission(doc, "delete");
+            const hasDownloadPerm = hasPermission(doc, "download");
+
+            return (
+              <div
+                key={doc.id}
+                className={`grid grid-cols-12 gap-4 py-4 border-b border-gray-100 items-center ${
+                  !hasViewPerm
+                    ? "opacity-60 bg-gray-50 cursor-not-allowed"
+                    : selectedFiles.includes(doc.id)
+                    ? "bg-[#f0f4ff]"
+                    : "hover:bg-gray-50 cursor-pointer"
+                }`}
+                onClick={() => toggleFileSelection(doc.id, hasViewPerm)}
+              >
+                <div className="col-span-5 flex items-center">
+                  <div className="w-8 h-8 mr-3 flex items-center justify-center relative">
+                    <img
+                      src={getFileIcon(doc.type) || "/placeholder.svg"}
+                      alt={doc.type}
+                      className={`w-full h-full object-contain ${
+                        !hasViewPerm ? "opacity-50" : ""
+                      }`}
+                    />
+                    {!hasViewPerm && (
+                      <div className="absolute -top-1 -right-1">
+                        <img
+                          src={lockSvg || "/placeholder.svg"}
+                          alt="Verrouillé"
+                          className="w-4 h-4"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <span
+                    className={`text-sm font-medium truncate ${
+                      !hasViewPerm ? "text-gray-400" : ""
+                    }`}
                   >
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <FiMoreVertical size={16} />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem className="flex items-center cursor-pointer">
-                      <FiEye className="mr-2" size={14} />
-                      <span>Aperçu</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="flex items-center cursor-pointer">
-                      <FiDownload className="mr-2" size={14} />
-                      <span>Télécharger</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="flex items-center cursor-pointer">
-                      <FiShare2 className="mr-2" size={14} />
-                      <span>Partager</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="flex items-center cursor-pointer">
-                      <FiLock className="mr-2" size={14} />
-                      <span>Permissions</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="flex items-center text-red-500 cursor-pointer">
-                      <FiTrash2 className="mr-2" size={14} />
-                      <span>Supprimer</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    {doc.title}
+                  </span>
+                </div>
+                <div className="col-span-3 text-sm text-gray-500">
+                  {/* <div>
+                    {getFormattedDate(
+                      doc?.created_at || binder?.created_at || ""
+                    )}
+                  </div> */}
+                  <div className="text-xs">
+                    {doc.tags && doc.tags.length > 0
+                      ? doc.tags.join(", ")
+                      : "Aucun tag"}
+                  </div>
+                </div>
+                {/* <div className="col-span-3 text-sm text-gray-500">
+                  {getFileSize(doc.path)}
+                </div> */}
+                <div className="col-span-1 flex justify-end relative">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      asChild
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button className="text-gray-400 hover:text-gray-600">
+                        <FiMoreVertical size={16} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      {hasViewPerm && (
+                        <DropdownMenuItem className="flex items-center cursor-pointer">
+                          <FiEye className="mr-2" size={14} />
+                          <span>Aperçu</span>
+                        </DropdownMenuItem>
+                      )}
+                      {hasDownloadPerm && (
+                        <DropdownMenuItem className="flex items-center cursor-pointer">
+                          <FiDownload className="mr-2" size={14} />
+                          <span>Télécharger</span>
+                        </DropdownMenuItem>
+                      )}
+                      {hasEditPerm && (
+                        <DropdownMenuItem
+                          className="flex items-center cursor-pointer"
+                          onClick={() => navigate(`/document/${doc.id}/edit`)}
+                        >
+                          <FiEdit className="mr-2" size={14} />
+                          <span>Modifier</span>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        className="flex items-center cursor-pointer"
+                        onClick={() =>
+                          navigate(`/document/${doc.id}/permissions`)
+                        }
+                      >
+                        <FiLock className="mr-2" size={14} />
+                        <span>Permissions</span>
+                      </DropdownMenuItem>
+                      {hasDeletePerm && (
+                        <DropdownMenuItem className="flex items-center text-red-500 cursor-pointer">
+                          <FiTrash2 className="mr-2" size={14} />
+                          <span>Supprimer</span>
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

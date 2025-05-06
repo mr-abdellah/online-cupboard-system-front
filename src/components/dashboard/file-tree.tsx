@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getCupboards } from "@/services/cupboard";
 import {
@@ -10,7 +10,8 @@ import {
   FiPlus,
   FiEdit,
   FiTrash2,
-  FiShare2,
+  FiSearch,
+  FiFilter,
 } from "react-icons/fi";
 
 // Import des composants shadcn/ui
@@ -19,26 +20,129 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 // Import des images pour les icônes
 import folderSvg from "@/assets/folder.svg";
 import binderPng from "@/assets/binder.png";
+
+// Import des dialogs
+import { CreateCupboardDialog } from "../cupboard/create-cupboard-dialog";
+import { RenameCupboardDialog } from "../cupboard/rename-cupboard-dialog";
+import { DeleteCupboardDialog } from "../cupboard/delete-cupboard-dialog";
+import { CreateBinderDialog } from "../binder/create-binder-dialog";
+import { RenameBinderDialog } from "../binder/rename-binder-dialog";
+import { DeleteBinderDialog } from "../binder/delete-binder-dialog";
+import type { CupboardResponse } from "@/services/cupboard";
+
+// Define the complete BinderResponse interface
+interface BinderResponse {
+  id: string;
+  name: string;
+  cupboard_id: string;
+  order: number;
+  created_at: string;
+  updated_at: string;
+  cupboard?: {
+    id: string;
+    name: string;
+    order: number;
+  };
+  documents?: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    type: string;
+    ocr: string | null;
+    tags: string[];
+    binder_id: string;
+    path: string;
+    is_searchable: boolean;
+    permissions: ["view", "edit", "delete", "download"];
+  }>;
+}
 
 interface FileTreeProps {
   selectedItem: { id: string; type: "cupboard" | "binder" } | null;
   onSelect: (id: string, type: "cupboard" | "binder") => void;
 }
 
+// Document types for filtering
+const documentTypes = [
+  { value: "jpg,jpeg", label: "Images JPG" },
+  { value: "png", label: "Images PNG" },
+  { value: "pdf", label: "Documents PDF" },
+  { value: "doc,docx", label: "Documents Word" },
+  { value: "xls,xlsx", label: "Feuilles Excel" },
+  { value: "ppt,pptx", label: "Présentations PowerPoint" },
+];
+
 const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   const [expandedCupboards, setExpandedCupboards] = useState<
     Record<string, boolean>
   >({});
+  const dropdownRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+
+  // États pour les dialogs
+  const [createCupboardOpen, setCreateCupboardOpen] = useState(false);
+  const [renameCupboardOpen, setRenameCupboardOpen] = useState(false);
+  const [deleteCupboardOpen, setDeleteCupboardOpen] = useState(false);
+  const [createBinderOpen, setCreateBinderOpen] = useState(false);
+  const [renameBinderOpen, setRenameBinderOpen] = useState(false);
+  const [deleteBinderOpen, setDeleteBinderOpen] = useState(false);
+
+  // États pour les éléments sélectionnés pour les opérations
+  const [selectedCupboardForAction, setSelectedCupboardForAction] =
+    useState<CupboardResponse | null>(null);
+  const [selectedBinderForAction, setSelectedBinderForAction] =
+    useState<BinderResponse | null>(null);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Updated useQuery with search and filter parameters
   const { data, isLoading, error } = useQuery({
-    queryKey: ["cupboards"],
-    queryFn: getCupboards,
+    queryKey: ["cupboards", debouncedSearchQuery, typeFilter],
+    queryFn: () => getCupboards(debouncedSearchQuery, typeFilter),
   });
+
+  // Fix for accessibility issue - close dropdowns when dialog opens
+  useEffect(() => {
+    if (
+      createCupboardOpen ||
+      renameCupboardOpen ||
+      deleteCupboardOpen ||
+      createBinderOpen ||
+      renameBinderOpen ||
+      deleteBinderOpen
+    ) {
+      // Close any open dropdowns
+      document.body.click();
+    }
+  }, [
+    createCupboardOpen,
+    renameCupboardOpen,
+    deleteCupboardOpen,
+    createBinderOpen,
+    renameBinderOpen,
+    deleteBinderOpen,
+  ]);
 
   // Fonction pour basculer l'état d'expansion d'une armoire
   const toggleCupboard = (cupboardId: string) => {
@@ -48,20 +152,70 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
     }));
   };
 
-  // Effet pour auto-expand lorsqu'un classeur est sélectionné via l'URL
-  if (selectedItem?.type === "binder" && data) {
-    // Trouver le cupboard contenant ce binder
-    const cupboard = data.find(
-      (c) => c.binders && c.binders.some((b) => b.id === selectedItem.id)
-    );
-
-    if (cupboard && !expandedCupboards[cupboard.id]) {
-      setExpandedCupboards((prev) => ({
-        ...prev,
-        [cupboard.id]: true,
-      }));
+  // Handle filter selection
+  const handleFilterSelect = (value: string) => {
+    if (typeFilter === value) {
+      // If the same filter is clicked again, clear it
+      setTypeFilter("");
+    } else {
+      setTypeFilter(value);
     }
-  }
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery("");
+    setTypeFilter("");
+  };
+
+  // Fonctions pour ouvrir les dialogs
+  const handleCreateCupboard = () => {
+    setCreateCupboardOpen(true);
+  };
+
+  const handleRenameCupboard = (cupboard: CupboardResponse) => {
+    setSelectedCupboardForAction(cupboard);
+    setRenameCupboardOpen(true);
+  };
+
+  const handleDeleteCupboard = (cupboard: CupboardResponse) => {
+    setSelectedCupboardForAction(cupboard);
+    setDeleteCupboardOpen(true);
+  };
+
+  const handleCreateBinder = (cupboardId: string) => {
+    setSelectedCupboardForAction(
+      data?.find((c) => c.id === cupboardId) || null
+    );
+    setCreateBinderOpen(true);
+  };
+
+  const handleRenameBinder = (binder: BinderResponse) => {
+    setSelectedBinderForAction(binder);
+    setRenameBinderOpen(true);
+  };
+
+  const handleDeleteBinder = (binder: BinderResponse) => {
+    setSelectedBinderForAction(binder);
+    setDeleteBinderOpen(true);
+  };
+
+  // Effet pour auto-expand lorsqu'un classeur est sélectionné via l'URL
+  useEffect(() => {
+    if (selectedItem?.type === "binder" && data) {
+      // Trouver le cupboard contenant ce binder
+      const cupboard = data.find(
+        (c) => c.binders && c.binders.some((b) => b.id === selectedItem.id)
+      );
+
+      if (cupboard && !expandedCupboards[cupboard.id]) {
+        setExpandedCupboards((prev) => ({
+          ...prev,
+          [cupboard.id]: true,
+        }));
+      }
+    }
+  }, [selectedItem, data, expandedCupboards]);
 
   // Trier les armoires par ordre
   const sortedCupboards = data
@@ -115,9 +269,96 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
         <h3 className="text-lg font-semibold text-gray-800">
           Armoires Documentaires
         </h3>
-        <button className="text-[#3b5de7] hover:text-[#2d4ccc] p-1 rounded-md hover:bg-blue-50 transition-colors">
+        <button
+          className="text-[#3b5de7] hover:text-[#2d4ccc] p-1 rounded-md hover:bg-blue-50 transition-colors"
+          onClick={handleCreateCupboard}
+        >
           <FiPlus size={18} />
         </button>
+      </div>
+
+      {/* Search and Filter Section */}
+      <div className="mb-4 space-y-2">
+        <div className="flex gap-2">
+          <div className="relative flex-grow">
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Rechercher..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 w-full"
+            />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="relative">
+                <FiFilter size={16} />
+                {typeFilter && (
+                  <span className="absolute top-0 right-0 w-2 h-2 bg-[#3b5de7] rounded-full"></span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <div className="px-2 py-1.5 text-sm font-medium">
+                Types de documents
+              </div>
+              <DropdownMenuSeparator />
+              {documentTypes.map((type) => (
+                <DropdownMenuCheckboxItem
+                  key={type.value}
+                  checked={typeFilter === type.value}
+                  onCheckedChange={() => handleFilterSelect(type.value)}
+                >
+                  {type.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={clearFilters}
+                className="justify-center text-[#3b5de7]"
+              >
+                Réinitialiser les filtres
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Active filters */}
+        {(debouncedSearchQuery || typeFilter) && (
+          <div className="flex flex-wrap gap-2">
+            {debouncedSearchQuery && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Recherche: {debouncedSearchQuery}
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="ml-1 hover:text-gray-700"
+                >
+                  ×
+                </button>
+              </Badge>
+            )}
+            {typeFilter && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Type:{" "}
+                {documentTypes.find((t) => t.value === typeFilter)?.label ||
+                  typeFilter}
+                <button
+                  onClick={() => setTypeFilter("")}
+                  className="ml-1 hover:text-gray-700"
+                >
+                  ×
+                </button>
+              </Badge>
+            )}
+            <button
+              onClick={clearFilters}
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
+            >
+              Effacer tout
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="space-y-1">
@@ -178,6 +419,9 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
+                      ref={(el) => {
+                        dropdownRefs.current[`cupboard-${cupboard.id}`] = el;
+                      }}
                       className="text-gray-400 hover:text-gray-600 p-1 focus:outline-none"
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -199,15 +443,18 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem className="flex items-center cursor-pointer">
+                    <DropdownMenuItem
+                      className="flex items-center cursor-pointer"
+                      onClick={() => handleRenameCupboard(cupboard)}
+                    >
                       <FiEdit className="mr-2" size={14} />
                       <span>Renommer</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="flex items-center cursor-pointer">
-                      <FiShare2 className="mr-2" size={14} />
-                      <span>Partager</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="flex items-center text-red-500 cursor-pointer">
+
+                    <DropdownMenuItem
+                      className="flex items-center text-red-500 cursor-pointer"
+                      onClick={() => handleDeleteCupboard(cupboard)}
+                    >
                       <FiTrash2 className="mr-2" size={14} />
                       <span>Supprimer</span>
                     </DropdownMenuItem>
@@ -219,6 +466,14 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
               {isExpanded && (
                 <div className="ml-6 pl-2 border-l border-gray-200 mt-1 space-y-1">
                   {sortedBinders.map((binder) => {
+                    // Ensure binder has all required properties for BinderResponse
+                    const completeBinder: BinderResponse = {
+                      ...binder,
+                      // Add missing properties if they don't exist
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    };
+
                     const isBinderSelected =
                       selectedItem?.id === binder.id &&
                       selectedItem?.type === "binder";
@@ -252,6 +507,10 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
+                              ref={(el) => {
+                                dropdownRefs.current[`binder-${binder.id}`] =
+                                  el;
+                              }}
                               className="text-gray-400 hover:text-gray-600 p-1 focus:outline-none"
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -273,15 +532,18 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem className="flex items-center cursor-pointer">
+                            <DropdownMenuItem
+                              className="flex items-center cursor-pointer"
+                              onClick={() => handleRenameBinder(completeBinder)}
+                            >
                               <FiEdit className="mr-2" size={14} />
                               <span>Renommer</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="flex items-center cursor-pointer">
-                              <FiShare2 className="mr-2" size={14} />
-                              <span>Partager</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex items-center text-red-500 cursor-pointer">
+
+                            <DropdownMenuItem
+                              className="flex items-center text-red-500 cursor-pointer"
+                              onClick={() => handleDeleteBinder(completeBinder)}
+                            >
                               <FiTrash2 className="mr-2" size={14} />
                               <span>Supprimer</span>
                             </DropdownMenuItem>
@@ -290,7 +552,10 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                       </div>
                     );
                   })}
-                  <div className="flex items-center py-1.5 px-2 rounded-md cursor-pointer text-gray-400 hover:bg-gray-50 hover:text-gray-600">
+                  <div
+                    className="flex items-center py-1.5 px-2 rounded-md cursor-pointer text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                    onClick={() => handleCreateBinder(cupboard.id)}
+                  >
                     <span className="mr-2">
                       <FiFolderPlus size={16} />
                     </span>
@@ -310,11 +575,78 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
             alt="Dossier"
             className="mx-auto mb-2 w-8 h-8 opacity-40"
           />
-          <p className="text-sm">Aucune armoire trouvée</p>
-          <button className="mt-2 text-[#3b5de7] text-sm hover:underline">
-            Créer une armoire
-          </button>
+          {debouncedSearchQuery || typeFilter ? (
+            <>
+              <p className="text-sm">Aucun résultat trouvé</p>
+              <button
+                className="mt-2 text-[#3b5de7] text-sm hover:underline"
+                onClick={clearFilters}
+              >
+                Effacer les filtres
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm">Aucune armoire trouvée</p>
+              <button
+                className="mt-2 text-[#3b5de7] text-sm hover:underline"
+                onClick={handleCreateCupboard}
+              >
+                Créer une armoire
+              </button>
+            </>
+          )}
         </div>
+      )}
+
+      {/* Dialogs */}
+      <CreateCupboardDialog
+        open={createCupboardOpen}
+        setOpen={setCreateCupboardOpen}
+        onSuccess={() => {}}
+      />
+
+      {selectedCupboardForAction && (
+        <>
+          <RenameCupboardDialog
+            cupboard={selectedCupboardForAction}
+            open={renameCupboardOpen}
+            setOpen={setRenameCupboardOpen}
+            onSuccess={() => {}}
+          />
+
+          <DeleteCupboardDialog
+            cupboard={selectedCupboardForAction}
+            open={deleteCupboardOpen}
+            setOpen={setDeleteCupboardOpen}
+            onSuccess={() => {}}
+          />
+
+          <CreateBinderDialog
+            cupboardId={selectedCupboardForAction.id}
+            open={createBinderOpen}
+            setOpen={setCreateBinderOpen}
+            onSuccess={() => {}}
+          />
+        </>
+      )}
+
+      {selectedBinderForAction && (
+        <>
+          <RenameBinderDialog
+            binder={selectedBinderForAction}
+            open={renameBinderOpen}
+            setOpen={setRenameBinderOpen}
+            onSuccess={() => {}}
+          />
+
+          <DeleteBinderDialog
+            binder={selectedBinderForAction}
+            open={deleteBinderOpen}
+            setOpen={setDeleteBinderOpen}
+            onSuccess={() => {}}
+          />
+        </>
       )}
     </div>
   );

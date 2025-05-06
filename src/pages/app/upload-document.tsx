@@ -9,7 +9,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { FiLoader } from "react-icons/fi";
 import { debounce } from "lodash";
-import { getCupboards } from "@/services/cupboard";
+import { CupboardResponse, getCupboards } from "@/services/cupboard";
 import { createDocument, extractOcr } from "@/services/document";
 import {
   documentSchema,
@@ -56,9 +56,11 @@ export default function UploadDocumentPage() {
   const { setValue, handleSubmit, control, reset } = form;
 
   // Récupérer les armoires et classeurs
-  const { data: cupboards, isLoading: isLoadingCupboards } = useQuery({
+  const { data: cupboards, isLoading: isLoadingCupboards } = useQuery<
+    CupboardResponse[]
+  >({
     queryKey: ["cupboards"],
-    queryFn: getCupboards,
+    queryFn: () => getCupboards(),
   });
 
   // Effet pour définir le binder_id si le paramètre d'URL est présent
@@ -95,6 +97,12 @@ export default function UploadDocumentPage() {
         "image/jpg",
         "image/png",
         "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       ].includes(file.type);
 
       if (!isImageOrPdf) return;
@@ -122,7 +130,7 @@ export default function UploadDocumentPage() {
   // Mutation pour créer un document
   const createDocumentMutation = useMutation({
     mutationFn: createDocument,
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Document créé avec succès");
       reset();
       setFilePreview(null);
@@ -130,12 +138,7 @@ export default function UploadDocumentPage() {
       setTags([]);
       setTagInput("");
       setOcrText("");
-      // Rediriger vers la page du classeur
-      if (selectedBinderId) {
-        navigate(`/dashboard?binder_id=${selectedBinderId}`);
-      } else {
-        navigate("/dashboard");
-      }
+      navigate(`/document/${data?.id}/permissions`);
     },
     onError: (error: any) => {
       toast.error("Erreur lors de la création du document");
