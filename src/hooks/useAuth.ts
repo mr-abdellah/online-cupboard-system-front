@@ -9,6 +9,7 @@ export const useAuth = () => {
     enabled: !!getToken(),
     retry: false,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   return {

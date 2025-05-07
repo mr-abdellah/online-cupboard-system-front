@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getCupboards } from "@/services/cupboard";
 import {
@@ -12,8 +12,6 @@ import {
   FiTrash2,
   FiSearch,
   FiFilter,
-  FiLoader,
-  FiChevronDown as FiChevronDownIcon,
   FiFolder,
 } from "react-icons/fi";
 
@@ -62,10 +60,6 @@ const documentTypes = [
   { value: "ppt,pptx", label: "Présentations PowerPoint" },
 ];
 
-// Number of items to load at once
-const ITEMS_PER_PAGE = 50;
-const BINDERS_PER_PAGE = 100;
-
 const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   const [expandedCupboards, setExpandedCupboards] = useState<
     Record<string, boolean>
@@ -80,22 +74,6 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-
-  // Pagination state for cupboards
-  const [visibleCupboards, setVisibleCupboards] = useState<CupboardResponse[]>(
-    []
-  );
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
-
-  // Pagination state for binders within each cupboard
-  const [bindersVisibleCount, setBindersVisibleCount] = useState<
-    Record<string, number>
-  >({});
-  const [loadingMoreBinders, setLoadingMoreBinders] = useState<
-    Record<string, boolean>
-  >({});
 
   // États pour les dialogs
   const [createCupboardOpen, setCreateCupboardOpen] = useState(false);
@@ -116,11 +94,6 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      // Reset pagination when search changes
-      setPage(1);
-      setVisibleCupboards([]);
-      setHasMore(true);
-      setBindersVisibleCount({});
     }, 300);
 
     return () => clearTimeout(timer);
@@ -130,72 +103,14 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   const { data, isLoading, error } = useQuery({
     queryKey: ["cupboards", debouncedSearchQuery, typeFilter],
     queryFn: () => getCupboards(debouncedSearchQuery, typeFilter),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   // Memoize sorted cupboards to avoid unnecessary re-sorting
-  const sortedCupboards = useMemo(() => {
-    return data ? [...data].sort((a, b) => a.order - b.order) : [];
-  }, [data]);
-
-  // Load more cupboards when scrolling
-  const loadMoreCupboards = useCallback(() => {
-    if (!sortedCupboards.length || loadingMore || !hasMore) return;
-
-    setLoadingMore(true);
-
-    const startIndex = (page - 1) * ITEMS_PER_PAGE;
-    const endIndex = page * ITEMS_PER_PAGE;
-    const newItems = sortedCupboards.slice(startIndex, endIndex);
-
-    // Simulate network delay to avoid UI freezing
-    setTimeout(() => {
-      setVisibleCupboards((prev) => [...prev, ...newItems]);
-      setPage((prev) => prev + 1);
-      setHasMore(endIndex < sortedCupboards.length);
-      setLoadingMore(false);
-    }, 50);
-  }, [page, sortedCupboards, loadingMore, hasMore]);
-
-  // Initialize visible cupboards when data changes
-  useEffect(() => {
-    if (data && page === 1) {
-      const initialItems = sortedCupboards.slice(0, ITEMS_PER_PAGE);
-      setVisibleCupboards(initialItems);
-      setPage(2);
-      setHasMore(ITEMS_PER_PAGE < sortedCupboards.length);
-
-      // Initialize binders visible count
-      const initialBindersCount: Record<string, number> = {};
-      initialItems.forEach((cupboard) => {
-        initialBindersCount[cupboard.id] = BINDERS_PER_PAGE;
-      });
-      setBindersVisibleCount(initialBindersCount);
-    }
-  }, [data, sortedCupboards, page]);
-
-  // Setup intersection observer for infinite scrolling
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore) {
-          loadMoreCupboards();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    const loadMoreTrigger = document.getElementById("load-more-trigger");
-    if (loadMoreTrigger) {
-      observer.observe(loadMoreTrigger);
-    }
-
-    return () => {
-      if (loadMoreTrigger) {
-        observer.unobserve(loadMoreTrigger);
-      }
-    };
-  }, [hasMore, loadMoreCupboards, loadingMore]);
+  // Sort cupboards directly without useMemo
+  const sortedCupboards = data
+    ? [...data].sort((a, b) => a.order - b.order)
+    : [];
 
   // Fix for accessibility issue - close dropdowns when dialog opens
   useEffect(() => {
@@ -229,24 +144,6 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
     }));
   }, []);
 
-  // Load more binders for a specific cupboard
-  const loadMoreBinders = useCallback(
-    (cupboardId: string, currentCount: number, totalBinders: number) => {
-      setLoadingMoreBinders((prev) => ({ ...prev, [cupboardId]: true }));
-
-      // Simulate network delay to avoid UI freezing
-      setTimeout(() => {
-        const newCount = Math.min(
-          currentCount + BINDERS_PER_PAGE,
-          totalBinders
-        );
-        setBindersVisibleCount((prev) => ({ ...prev, [cupboardId]: newCount }));
-        setLoadingMoreBinders((prev) => ({ ...prev, [cupboardId]: false }));
-      }, 50);
-    },
-    []
-  );
-
   // Handle filter selection
   const handleFilterSelect = useCallback(
     (value: string) => {
@@ -256,11 +153,6 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
       } else {
         setTypeFilter(value);
       }
-      // Reset pagination
-      setPage(1);
-      setVisibleCupboards([]);
-      setHasMore(true);
-      setBindersVisibleCount({});
     },
     [typeFilter]
   );
@@ -269,11 +161,6 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   const clearFilters = useCallback(() => {
     setSearchQuery("");
     setTypeFilter("");
-    // Reset pagination
-    setPage(1);
-    setVisibleCupboards([]);
-    setHasMore(true);
-    setBindersVisibleCount({});
   }, []);
 
   // Fonctions pour ouvrir les dialogs
@@ -343,16 +230,16 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   // Expand all cupboards when there is a search or filter
   useEffect(() => {
     if (debouncedSearchQuery || typeFilter) {
-      // Expand only visible cupboards when there is a search or filter
+      // Expand all cupboards when there is a search or filter
       setExpandedCupboards((prev) => {
         const newExpanded = { ...prev };
-        visibleCupboards?.forEach((cupboard) => {
+        sortedCupboards?.forEach((cupboard) => {
           newExpanded[cupboard.id] = true;
         });
         return newExpanded;
       });
     }
-  }, [debouncedSearchQuery, typeFilter, visibleCupboards]);
+  }, [debouncedSearchQuery, typeFilter, sortedCupboards]);
 
   // État de chargement
   if (isLoading) {
@@ -507,25 +394,15 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
         className="space-y-1 overflow-auto flex-grow"
         style={{ maxHeight: "calc(100vh - 200px)" }}
       >
-        {visibleCupboards.length > 0 ? (
+        {sortedCupboards.length > 0 ? (
           <>
-            {visibleCupboards.map((cupboard) => {
+            {sortedCupboards.map((cupboard) => {
               // Get all binders for this cupboard
               const allBinders = cupboard.binders || [];
 
-              // Get the number of binders to show based on the current visible count
-              const visibleCount =
-                bindersVisibleCount[cupboard.id] || BINDERS_PER_PAGE;
-              const bindersToShow = allBinders.slice(0, visibleCount);
-
-              // Check if there are more binders to load
-              const hasMoreBinders = allBinders.length > visibleCount;
-              const isLoadingMoreBinders =
-                loadingMoreBinders[cupboard.id] || false;
-
               // Trier les classeurs par ordre
-              const sortedBinders = bindersToShow
-                ? [...bindersToShow].sort((a, b) => a.order - b.order)
+              const sortedBinders = allBinders
+                ? [...allBinders].sort((a, b) => a.order - b.order)
                 : [];
 
               const isExpanded = expandedCupboards[cupboard.id] || false;
@@ -747,43 +624,6 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                         );
                       })}
 
-                      {/* Show "Load more binders" button if there are more than the visible count */}
-                      {hasMoreBinders && isExpanded && (
-                        <div className="py-2 px-2">
-                          {isLoadingMoreBinders ? (
-                            <div className="flex items-center justify-center text-sm text-gray-500">
-                              <FiLoader
-                                className="animate-spin mr-2"
-                                size={14}
-                              />
-                              <span>Chargement des classeurs...</span>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="text-sm text-gray-500 mb-2">
-                                {allBinders.length - visibleCount} classeurs
-                                supplémentaires non affichés
-                              </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full text-xs flex items-center justify-center text-[#3b5de7]"
-                                onClick={() =>
-                                  loadMoreBinders(
-                                    cupboard.id,
-                                    visibleCount,
-                                    allBinders.length
-                                  )
-                                }
-                              >
-                                <FiChevronDownIcon className="mr-1" size={14} />
-                                Charger plus de classeurs
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      )}
-
                       {canUploadDocuments && (
                         <div
                           className="flex items-center py-1.5 px-2 rounded-md cursor-pointer text-gray-400 hover:bg-gray-50 hover:text-gray-600"
@@ -800,27 +640,6 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                 </div>
               );
             })}
-
-            {/* Load more cupboards trigger */}
-            {hasMore && (
-              <div id="load-more-trigger" className="py-4 text-center">
-                {loadingMore ? (
-                  <div className="flex items-center justify-center">
-                    <FiLoader className="animate-spin mr-2" />
-                    <span className="text-sm text-gray-500">Chargement...</span>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadMoreCupboards}
-                    className="text-sm text-gray-500"
-                  >
-                    Charger plus d'armoires
-                  </Button>
-                )}
-              </div>
-            )}
           </>
         ) : (
           <div className="text-center py-8 text-gray-500">
