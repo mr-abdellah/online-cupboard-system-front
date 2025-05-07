@@ -30,7 +30,6 @@ interface DocumentFormProps {
   selectedFile: File | null;
   filePreview: string | null;
   handleCupboardChange: (cupboardId: string) => void;
-  setSelectedBinderId: (binderId: string) => void;
   setTagInput: (value: string) => void;
   handleAddTag: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   handleRemoveTag: (tag: string) => void;
@@ -49,7 +48,6 @@ export default function DocumentForm({
   selectedFile,
   filePreview,
   handleCupboardChange,
-  setSelectedBinderId,
   setTagInput,
   handleAddTag,
   handleRemoveTag,
@@ -138,7 +136,6 @@ export default function DocumentForm({
                 <Select
                   onValueChange={(value) => {
                     field.onChange(value);
-                    setSelectedBinderId(value);
                   }}
                   value={field.value}
                   disabled={!selectedCupboardId || binders.length === 0}

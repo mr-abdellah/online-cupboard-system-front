@@ -34,11 +34,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 // Import des images pour les icônes
 import folderSvg from "@/assets/folder.svg";
 import binderPng from "@/assets/binder.png";
-import pdfPng from "@/assets/pdf.png";
-import wordSvg from "@/assets/word.svg";
-import imagePng from "@/assets/image.png";
-import videoPng from "@/assets/video.png";
-import documentSvg from "@/assets/document.svg";
 
 // Import des dialogs
 import { CreateCupboardDialog } from "../cupboard/create-cupboard-dialog";

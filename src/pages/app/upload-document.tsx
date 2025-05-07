@@ -31,9 +31,7 @@ export default function UploadDocumentPage() {
 
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedBinderId, setSelectedBinderId] = useState<string>(
-    binderIdParam || ""
-  );
+
   const [selectedCupboardId, setSelectedCupboardId] = useState<string>(
     cupboardIdParam || ""
   );
@@ -205,7 +203,6 @@ export default function UploadDocumentPage() {
   // Gérer le changement d'armoire
   const handleCupboardChange = (cupboardId: string) => {
     setSelectedCupboardId(cupboardId);
-    setSelectedBinderId("");
     setValue("binder_id", "");
   };
 
@@ -277,7 +274,6 @@ export default function UploadDocumentPage() {
                 selectedFile={selectedFile}
                 filePreview={filePreview}
                 handleCupboardChange={handleCupboardChange}
-                setSelectedBinderId={setSelectedBinderId}
                 setTagInput={setTagInput}
                 handleAddTag={handleAddTag}
                 handleRemoveTag={handleRemoveTag}

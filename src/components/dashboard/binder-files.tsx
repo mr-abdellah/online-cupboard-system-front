@@ -56,7 +56,6 @@ const BinderFiles = () => {
     enabled: !!binderId,
   });
 
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const documents = binder?.documents || [];
 
   // State for dialogs
@@ -319,10 +318,6 @@ const BinderFiles = () => {
               <div
                 key={doc.id}
                 className={`grid grid-cols-12 gap-4 py-4 border-b border-gray-100 items-center ${
-                  selectedFiles.includes(doc.id)
-                    ? "bg-[#f0f4ff]"
-                    : "hover:bg-gray-50"
-                } ${
                   !canView ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
                 }`}
                 onClick={() => canView && handlePreviewDocument(doc)}
