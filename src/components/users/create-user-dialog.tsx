@@ -36,7 +36,23 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FiUpload } from "react-icons/fi";
-import { createUser } from "@/services/user";
+import { createUser, Permission } from "@/services/user";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
+
+const permissionLabels: { label: string; value: Permission }[] = [
+  { label: "Voir les armoires/classeurs", value: "can_view_documents" },
+  {
+    label: "Créer ou modifier des armoires/classeurs",
+    value: "can_edit_documents",
+  },
+  { label: "Supprimer des armoires/classeurs", value: "can_delete_document" },
+  { label: "Importer des documents", value: "can_upload_documents" },
+  { label: "Voir les utilisateurs", value: "can_view_users" },
+  { label: "Éditer les utilisateurs", value: "can_edit_users" },
+  { label: "Supprimer les utilisateurs", value: "can_delete_users" },
+  { label: "Créer des utilisateurs", value: "can_create_users" },
+];
 
 // Schéma de validation pour la création d'utilisateur
 const createUserSchema = z
@@ -69,6 +85,7 @@ const createUserSchema = z
     status: z.enum(["active", "inactive"], {
       required_error: "Veuillez sélectionner un statut",
     }),
+    permissions: z.array(z.string() as z.ZodType<Permission>),
   })
   .refine((data) => data.password === data.password_confirmation, {
     message: "Les mots de passe ne correspondent pas",
@@ -97,6 +114,7 @@ export function CreateUserDialog({ open, setOpen }: CreateUserDialogProps) {
       password: "",
       password_confirmation: "",
       status: "active",
+      permissions: [],
     },
   });
 
@@ -153,7 +171,7 @@ export function CreateUserDialog({ open, setOpen }: CreateUserDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Créer un nouvel utilisateur</DialogTitle>
           <DialogDescription>
@@ -282,6 +300,46 @@ export function CreateUserDialog({ open, setOpen }: CreateUserDialogProps) {
                 </FormItem>
               )}
             />
+
+            <Separator className="my-4" />
+
+            <div>
+              <h3 className="text-sm font-medium mb-3">Permissions</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {permissionLabels.map((permission) => (
+                  <FormField
+                    key={permission.value}
+                    control={form.control}
+                    name="permissions"
+                    render={({ field }) => {
+                      return (
+                        <FormItem
+                          key={permission.value}
+                          className="flex flex-row items-start space-x-3 space-y-0"
+                        >
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value?.includes(permission.value)}
+                              onCheckedChange={(checked) => {
+                                const updatedPermissions = checked
+                                  ? [...field.value, permission.value]
+                                  : field.value?.filter(
+                                      (value) => value !== permission.value
+                                    );
+                                field.onChange(updatedPermissions);
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="text-sm font-normal">
+                            {permission.label}
+                          </FormLabel>
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
 
             <DialogFooter className="mt-6">
               <Button type="button" variant="outline" onClick={handleClose}>

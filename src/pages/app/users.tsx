@@ -56,6 +56,7 @@ import { UpdateUserDialog } from "@/components/users/update-user-dialog";
 import { DeleteUserDialog } from "@/components/users/delete-user-dialog";
 import { ActivateUserDialog } from "@/components/users/activate-user-dialog";
 import { DeactivateUserDialog } from "@/components/users/deactivate-user-dialog";
+import { usePermission } from "@/hooks/usePermission";
 
 export default function UsersPage() {
   const [page, setPage] = useState(1);
@@ -64,6 +65,8 @@ export default function UsersPage() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
+  const { canCreateUsers, canEditUsers } = usePermission();
+
   // Dialogs state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
@@ -71,6 +74,7 @@ export default function UsersPage() {
   const [activateDialogOpen, setActivateDialogOpen] = useState(false);
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   // Fetch users data
   const { data, isLoading, isError } = useQuery({
@@ -116,7 +120,7 @@ export default function UsersPage() {
 
   // Open dialog with selected user
   const openUpdateDialog = (user: User) => {
-    setSelectedUser(user);
+    setSelectedUserId(user?.id);
     setUpdateDialogOpen(true);
   };
 
@@ -244,13 +248,18 @@ export default function UsersPage() {
             Gérez les utilisateurs de votre application
           </p>
         </div>
-        <Button
-          onClick={() => setCreateDialogOpen(true)}
-          className="flex items-center"
-        >
-          <FiPlus className="mr-2" />
-          Nouvel utilisateur
-        </Button>
+        {canCreateUsers && (
+          <Button
+            onClick={() => {
+              if (!canCreateUsers) return;
+              setCreateDialogOpen(true);
+            }}
+            className="flex items-center"
+          >
+            <FiPlus className="mr-2" />
+            Nouvel utilisateur
+          </Button>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-100">
@@ -377,36 +386,42 @@ export default function UsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => openUpdateDialog(user)}
-                            >
-                              <FiEdit className="mr-2 h-4 w-4" />
-                              <span>Modifier</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {user.status === "active" ? (
+                            {canEditUsers && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() => openUpdateDialog(user)}
+                                >
+                                  <FiEdit className="mr-2 h-4 w-4" />
+                                  <span>Modifier</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {user.status === "active" ? (
+                                  <DropdownMenuItem
+                                    onClick={() => openDeactivateDialog(user)}
+                                  >
+                                    <FiUserX className="mr-2 h-4 w-4" />
+                                    <span>Désactiver</span>
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={() => openActivateDialog(user)}
+                                  >
+                                    <FiUserCheck className="mr-2 h-4 w-4" />
+                                    <span>Activer</span>
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
+                            {canEditUsers && (
                               <DropdownMenuItem
-                                onClick={() => openDeactivateDialog(user)}
+                                onClick={() => openDeleteDialog(user)}
+                                className="text-red-600 focus:text-red-600"
                               >
-                                <FiUserX className="mr-2 h-4 w-4" />
-                                <span>Désactiver</span>
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem
-                                onClick={() => openActivateDialog(user)}
-                              >
-                                <FiUserCheck className="mr-2 h-4 w-4" />
-                                <span>Activer</span>
+                                <FiTrash2 className="mr-2 h-4 w-4" />
+                                <span>Supprimer</span>
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => openDeleteDialog(user)}
-                              className="text-red-600 focus:text-red-600"
-                            >
-                              <FiTrash2 className="mr-2 h-4 w-4" />
-                              <span>Supprimer</span>
-                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -436,13 +451,16 @@ export default function UsersPage() {
       {/* Dialogs */}
       <CreateUserDialog open={createDialogOpen} setOpen={setCreateDialogOpen} />
 
+      {selectedUserId && (
+        <UpdateUserDialog
+          open={updateDialogOpen}
+          setOpen={setUpdateDialogOpen}
+          userId={selectedUserId}
+        />
+      )}
+
       {selectedUser && (
         <>
-          <UpdateUserDialog
-            open={updateDialogOpen}
-            setOpen={setUpdateDialogOpen}
-            user={selectedUser}
-          />
           <DeleteUserDialog
             open={deleteDialogOpen}
             setOpen={setDeleteDialogOpen}

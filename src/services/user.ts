@@ -36,14 +36,49 @@ export interface User {
   } | null;
 }
 
+interface UserPermission extends User {
+  permissions: [
+    {
+      id: number;
+      name: Permission;
+      pivot: {
+        model_type: string;
+        model_id: string;
+        permission_id: number;
+      };
+    }
+  ];
+}
+
+export type Permission =
+  | "can_view_documents"
+  | "can_edit_documents"
+  | "can_delete_document"
+  | "can_upload_documents"
+  | "can_view_users"
+  | "can_edit_users"
+  | "can_delete_users"
+  | "can_create_users";
+
 // Request interface for creating/updating user
-interface UserRequest {
+interface CreateUserRequest {
+  name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+  avatar?: File;
+  status: "active" | "inactive";
+  permissions: Permission[];
+}
+
+interface UpdateUserRequest {
   name?: string;
   email?: string;
   password?: string;
   password_confirmation?: string;
   avatar?: File;
   status?: "active" | "inactive";
+  permissions?: Permission[];
 }
 
 // Paginated users response interface
@@ -95,7 +130,7 @@ export async function getUsers(
   }
 }
 
-export async function createUser(data: UserRequest): Promise<User> {
+export async function createUser(data: CreateUserRequest): Promise<User> {
   try {
     const formData = new FormData();
     if (data.name) formData.append("name", data.name);
@@ -105,6 +140,11 @@ export async function createUser(data: UserRequest): Promise<User> {
       formData.append("password_confirmation", data.password_confirmation);
     if (data.avatar) formData.append("avatar", data.avatar);
     if (data.status) formData.append("status", data.status);
+    if (data.permissions) {
+      data.permissions.forEach((permission, idx) => {
+        formData.append(`permissions[${idx}]`, permission);
+      });
+    }
 
     const response = await api.post("/users", formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -115,7 +155,7 @@ export async function createUser(data: UserRequest): Promise<User> {
   }
 }
 
-export async function getUser(userId: string): Promise<User> {
+export async function getUser(userId: string): Promise<UserPermission> {
   try {
     const response = await api.get(`/users/${userId}`);
     return response.data;
@@ -126,7 +166,7 @@ export async function getUser(userId: string): Promise<User> {
 
 export async function updateUser(
   userId: string,
-  data: UserRequest
+  data: UpdateUserRequest
 ): Promise<User> {
   try {
     const formData = new FormData();
@@ -137,6 +177,11 @@ export async function updateUser(
       formData.append("password_confirmation", data.password_confirmation);
     if (data.avatar) formData.append("avatar", data.avatar);
     if (data.status) formData.append("status", data.status);
+    if (data.permissions) {
+      data.permissions.forEach((permission, idx) => {
+        formData.append(`permissions[${idx}]`, permission);
+      });
+    }
 
     const response = await api.post(`/users/${userId}`, formData, {
       headers: { "Content-Type": "multipart/form-data" },

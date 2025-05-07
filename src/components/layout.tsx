@@ -12,7 +12,6 @@ import {
   FiLogOut,
   FiUser,
 } from "react-icons/fi";
-// Import des composants shadcn/ui
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +34,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { removeToken } from "@/utils/token";
 import { logout } from "@/services/auth";
+import { usePermission } from "@/hooks/usePermission";
 
 export default function Layout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -42,27 +42,26 @@ export default function Layout() {
   const location = useLocation();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { canViewUsers, canUploadDocuments } = usePermission();
 
   const navItems = [
     {
       name: "Tableau de bord",
       path: "/dashboard",
       icon: <FiHome size={20} />,
+      isVisible: true,
     },
     {
       name: "Utilisateurs",
       path: "/users",
       icon: <FiUsers size={20} />,
+      isVisible: canViewUsers,
     },
-    // {
-    //   name: "Journaux d'activité",
-    //   path: "/activity-logs",
-    //   icon: <FiActivity size={20} />,
-    // },
     {
       name: "Importer un document",
       path: "/upload-document",
       icon: <FiUpload size={20} />,
+      isVisible: canUploadDocuments,
     },
   ];
 
@@ -117,20 +116,22 @@ export default function Layout() {
 
             {/* Desktop navigation */}
             <div className="hidden md:flex items-center space-x-6 flex-1 justify-center">
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                    location.pathname === item.path
-                      ? "text-blue-600 bg-blue-50"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
-                  }`}
-                >
-                  <span className="mr-2">{item.icon}</span>
-                  {item.name}
-                </Link>
-              ))}
+              {navItems
+                ?.filter((e) => e?.isVisible)
+                .map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                      location.pathname === item.path
+                        ? "text-blue-600 bg-blue-50"
+                        : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="mr-2">{item.icon}</span>
+                    {item.name}
+                  </Link>
+                ))}
             </div>
 
             {/* User dropdown with shadcn/ui */}

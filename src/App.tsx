@@ -6,11 +6,21 @@ import { Toaster } from "./components/ui/sonner";
 import DashboardPage from "./pages/app/dashboard";
 import Layout from "./components/layout";
 import UsersPage from "./pages/app/users";
-import ActivityLogsPage from "./pages/app/activity-logs";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import UploadDocument from "./pages/app/upload-document";
 import DocumentPermissionsPage from "./pages/app/document-permissions";
 import ProfilePage from "./pages/app/profile";
+import { withPermission } from "./hoc/with-permission";
+
+const ProtectedUsersPage = withPermission(UsersPage, "can_view_users");
+const ProtectedUploadDocumentPage = withPermission(
+  UploadDocument,
+  "can_upload_documents"
+);
+const ProtectedDocumentPermissionsPage = withPermission(
+  DocumentPermissionsPage,
+  "can_upload_documents"
+);
 
 const router = createBrowserRouter([
   {
@@ -34,19 +44,16 @@ const router = createBrowserRouter([
       },
       {
         path: "users",
-        element: <UsersPage />,
+        element: <ProtectedUsersPage />,
       },
-      {
-        path: "activity-logs",
-        element: <ActivityLogsPage />,
-      },
+
       {
         path: "upload-document",
-        element: <UploadDocument />,
+        element: <ProtectedUploadDocumentPage />,
       },
       {
         path: "document/:document_id/permissions",
-        element: <DocumentPermissionsPage />,
+        element: <ProtectedDocumentPermissionsPage />,
       },
       {
         path: "profile",

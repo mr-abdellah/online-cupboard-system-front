@@ -50,6 +50,7 @@ import { DeleteBinderDialog } from "../binder/delete-binder-dialog";
 import { MoveBinderDialog } from "../binder/move-binder-dialog";
 import type { CupboardResponse } from "@/services/cupboard";
 import type { BinderResponse } from "@/services/binder";
+import { usePermission } from "@/hooks/usePermission";
 
 interface FileTreeProps {
   selectedItem: { id: string; type: "cupboard" | "binder" } | null;
@@ -76,6 +77,9 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   >({});
   const dropdownRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const { canEditDocuments, canDeleteDocument, canUploadDocuments } =
+    usePermission();
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -279,21 +283,25 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
 
   // Fonctions pour ouvrir les dialogs
   const handleCreateCupboard = useCallback(() => {
+    if (!canUploadDocuments) return;
     setCreateCupboardOpen(true);
   }, []);
 
   const handleRenameCupboard = useCallback((cupboard: CupboardResponse) => {
+    if (!canEditDocuments) return;
     setSelectedCupboardForAction(cupboard);
     setRenameCupboardOpen(true);
   }, []);
 
   const handleDeleteCupboard = useCallback((cupboard: CupboardResponse) => {
+    if (!canDeleteDocument) return;
     setSelectedCupboardForAction(cupboard);
     setDeleteCupboardOpen(true);
   }, []);
 
   const handleCreateBinder = useCallback(
     (cupboardId: string) => {
+      if (!canUploadDocuments) return;
       setSelectedCupboardForAction(
         data?.find((c) => c.id === cupboardId) || null
       );
@@ -303,16 +311,19 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   );
 
   const handleRenameBinder = useCallback((binder: BinderResponse) => {
+    if (!canEditDocuments) return;
     setSelectedBinderForAction(binder);
     setRenameBinderOpen(true);
   }, []);
 
   const handleDeleteBinder = useCallback((binder: BinderResponse) => {
+    if (!canDeleteDocument) return;
     setSelectedBinderForAction(binder);
     setDeleteBinderOpen(true);
   }, []);
 
   const handleMoveBinder = useCallback((binder: BinderResponse) => {
+    if (!canEditDocuments) return;
     setSelectedBinderForAction(binder);
     setMoveBinderOpen(true);
   }, []);
@@ -403,12 +414,14 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
             </span>
           )}
         </h3>
-        <button
-          className="text-[#3b5de7] hover:text-[#2d4ccc] p-1 rounded-md hover:bg-blue-50 transition-colors"
-          onClick={handleCreateCupboard}
-        >
-          <FiPlus size={18} />
-        </button>
+        {canUploadDocuments && (
+          <button
+            className="text-[#3b5de7] hover:text-[#2d4ccc] p-1 rounded-md hover:bg-blue-50 transition-colors"
+            onClick={handleCreateCupboard}
+          >
+            <FiPlus size={18} />
+          </button>
+        )}
       </div>
 
       {/* Search and Filter Section */}
@@ -600,21 +613,25 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem
-                          className="flex items-center cursor-pointer"
-                          onClick={() => handleRenameCupboard(cupboard)}
-                        >
-                          <FiEdit className="mr-2" size={14} />
-                          <span>Renommer</span>
-                        </DropdownMenuItem>
+                        {canEditDocuments && (
+                          <DropdownMenuItem
+                            className="flex items-center cursor-pointer"
+                            onClick={() => handleRenameCupboard(cupboard)}
+                          >
+                            <FiEdit className="mr-2" size={14} />
+                            <span>Renommer</span>
+                          </DropdownMenuItem>
+                        )}
 
-                        <DropdownMenuItem
-                          className="flex items-center text-red-500 cursor-pointer"
-                          onClick={() => handleDeleteCupboard(cupboard)}
-                        >
-                          <FiTrash2 className="mr-2" size={14} />
-                          <span>Supprimer</span>
-                        </DropdownMenuItem>
+                        {canDeleteDocument && (
+                          <DropdownMenuItem
+                            className="flex items-center text-red-500 cursor-pointer"
+                            onClick={() => handleDeleteCupboard(cupboard)}
+                          >
+                            <FiTrash2 className="mr-2" size={14} />
+                            <span>Supprimer</span>
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -693,37 +710,42 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-40">
-                                <DropdownMenuItem
-                                  className="flex items-center cursor-pointer"
-                                  onClick={() =>
-                                    handleRenameBinder(completeBinder)
-                                  }
-                                >
-                                  <FiEdit className="mr-2" size={14} />
-                                  <span>Renommer</span>
-                                </DropdownMenuItem>
+                                {canEditDocuments && (
+                                  <>
+                                    <DropdownMenuItem
+                                      className="flex items-center cursor-pointer"
+                                      onClick={() =>
+                                        handleRenameBinder(completeBinder)
+                                      }
+                                    >
+                                      <FiEdit className="mr-2" size={14} />
+                                      <span>Renommer</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="flex items-center cursor-pointer"
+                                      onClick={() =>
+                                        handleMoveBinder(completeBinder)
+                                      }
+                                    >
+                                      <FiFolder className="mr-2" size={14} />
+                                      <span>Déplacer</span>
+                                    </DropdownMenuItem>
 
-                                <DropdownMenuItem
-                                  className="flex items-center cursor-pointer"
-                                  onClick={() =>
-                                    handleMoveBinder(completeBinder)
-                                  }
-                                >
-                                  <FiFolder className="mr-2" size={14} />
-                                  <span>Déplacer</span>
-                                </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
 
-                                <DropdownMenuSeparator />
-
-                                <DropdownMenuItem
-                                  className="flex items-center text-red-500 cursor-pointer"
-                                  onClick={() =>
-                                    handleDeleteBinder(completeBinder)
-                                  }
-                                >
-                                  <FiTrash2 className="mr-2" size={14} />
-                                  <span>Supprimer</span>
-                                </DropdownMenuItem>
+                                {canDeleteDocument && (
+                                  <DropdownMenuItem
+                                    className="flex items-center text-red-500 cursor-pointer"
+                                    onClick={() =>
+                                      handleDeleteBinder(completeBinder)
+                                    }
+                                  >
+                                    <FiTrash2 className="mr-2" size={14} />
+                                    <span>Supprimer</span>
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -767,15 +789,17 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                         </div>
                       )}
 
-                      <div
-                        className="flex items-center py-1.5 px-2 rounded-md cursor-pointer text-gray-400 hover:bg-gray-50 hover:text-gray-600"
-                        onClick={() => handleCreateBinder(cupboard.id)}
-                      >
-                        <span className="mr-2">
-                          <FiFolderPlus size={16} />
-                        </span>
-                        <span className="text-sm">Ajouter un classeur</span>
-                      </div>
+                      {canUploadDocuments && (
+                        <div
+                          className="flex items-center py-1.5 px-2 rounded-md cursor-pointer text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                          onClick={() => handleCreateBinder(cupboard.id)}
+                        >
+                          <span className="mr-2">
+                            <FiFolderPlus size={16} />
+                          </span>
+                          <span className="text-sm">Ajouter un classeur</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

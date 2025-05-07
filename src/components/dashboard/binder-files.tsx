@@ -34,6 +34,7 @@ import { DeleteDocumentDialog } from "../document/delete-document-dialog";
 import { UpdateDocumentDialog } from "../document/update-document-dialog";
 import { DocumentPreviewSheet } from "../document/document-preview-sheet";
 import { MoveDocumentDialog } from "../document/move-document-dialog";
+import { usePermission } from "@/hooks/usePermission";
 
 // Supprimer les props et utiliser useSearchParams à la place
 const BinderFiles = () => {
@@ -41,6 +42,8 @@ const BinderFiles = () => {
   const [searchParams] = useSearchParams();
   const binderId = searchParams.get("binder_id");
   const cupboardId = searchParams.get("cupboard_id");
+
+  const { canUploadDocuments } = usePermission();
 
   // Déplacer la requête useQuery ici
   const {
@@ -93,6 +96,7 @@ const BinderFiles = () => {
   };
 
   const handleUploadFile = () => {
+    if (!canUploadDocuments) return;
     navigate(
       `/upload-document?cupboard_id=${cupboardId}&binder_id=${binderId}`
     );
@@ -195,12 +199,14 @@ const BinderFiles = () => {
             ? `Fichiers du Classeur : ${binder.name}`
             : "Fichiers du Classeur"}
         </h3>
-        <button
-          onClick={handleUploadFile}
-          className="text-[#3b5de7] hover:text-[#2d4ccc] bg-blue-50 p-2 rounded-md hover:bg-blue-100 transition-colors"
-        >
-          <FiUpload size={18} />
-        </button>
+        {canUploadDocuments && (
+          <button
+            onClick={handleUploadFile}
+            className="text-[#3b5de7] hover:text-[#2d4ccc] bg-blue-50 p-2 rounded-md hover:bg-blue-100 transition-colors"
+          >
+            <FiUpload size={18} />
+          </button>
+        )}
       </div>
 
       {documents.length === 0 ? (

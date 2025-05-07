@@ -88,7 +88,7 @@ const StorageUsage = () => {
           <div className="h-7 bg-gray-200 rounded-md w-1/4"></div>
           <div className="h-7 bg-gray-200 rounded-md w-1/3"></div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-6">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-28 bg-gray-200 rounded-lg"></div>
           ))}
@@ -232,7 +232,7 @@ const StorageUsage = () => {
 
       <>
         {/* Types de fichiers avec pourcentages - Nouvelle mise en page */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           {fileTypes.map((type) => (
             <div
               key={type.key}
@@ -304,8 +304,8 @@ const StorageUsage = () => {
               <div
                 key={type.key}
                 className={`h-full w-20 ${type.color}`}
-                style={{ width: `${type.percentage + 10}%` }}
-                title={`${type.name}: ${type.percentage + 10}%`}
+                style={{ width: `${type.percentage}%` }}
+                title={`${type.name}: ${type.percentage}%`}
               ></div>
             ))}
           </div>

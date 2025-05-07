@@ -1,13 +1,11 @@
 "use client";
 
-import type React from "react";
-
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import React from "react";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useQueryClient } from "@tanstack/react-query";
-import { updateUser } from "@/services/user";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { updateUser, getUser } from "@/services/user";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -38,114 +36,126 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FiUpload } from "react-icons/fi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { User } from "@/services/user";
+import type { Permission } from "@/services/user";
+import { Checkbox } from "@/components/ui/checkbox";
 
-// Schéma de validation pour la mise à jour des informations
-const updateInfoSchema = z.object({
-  name: z
-    .string()
-    .min(2, { message: "Le nom doit contenir au moins 2 caractères" })
-    .max(50, { message: "Le nom ne peut pas dépasser 50 caractères" }),
-  email: z
-    .string()
-    .min(1, { message: "L'email est requis" })
-    .email({ message: "Format d'email invalide" }),
-  status: z.enum(["active", "inactive"], {
-    required_error: "Veuillez sélectionner un statut",
-  }),
-});
+const permissionLabels: { label: string; value: Permission }[] = [
+  { label: "Voir les armoires/classeurs", value: "can_view_documents" },
+  {
+    label: "Créer ou modifier des armoires/classeurs",
+    value: "can_edit_documents",
+  },
+  { label: "Supprimer des armoires/classeurs", value: "can_delete_document" },
+  { label: "Importer des documents", value: "can_upload_documents" },
+  { label: "Voir les utilisateurs", value: "can_view_users" },
+  { label: "Éditer les utilisateurs", value: "can_edit_users" },
+  { label: "Supprimer les utilisateurs", value: "can_delete_users" },
+  { label: "Créer des utilisateurs", value: "can_create_users" },
+];
 
-// Schéma de validation pour la mise à jour du mot de passe
-const updatePasswordSchema = z
+// Unified schema for all user data
+const updateUserSchema = z
   .object({
+    name: z
+      .string()
+      .min(2, { message: "Le nom doit contenir au moins 2 caractères" })
+      .max(50, { message: "Le nom ne peut pas dépasser 50 caractères" }),
+    email: z
+      .string()
+      .min(1, { message: "L'email est requis" })
+      .email({ message: "Format d'email invalide" }),
+    status: z.enum(["active", "inactive"], {
+      required_error: "Veuillez sélectionner un statut",
+    }),
     password: z
       .string()
       .min(8, {
         message: "Le mot de passe doit contenir au moins 8 caractères",
       })
-      .regex(/[A-Z]/, {
-        message: "Le mot de passe doit contenir au moins une majuscule",
-      })
-      .regex(/[a-z]/, {
-        message: "Le mot de passe doit contenir au moins une minuscule",
-      })
-      .regex(/[0-9]/, {
-        message: "Le mot de passe doit contenir au moins un chiffre",
-      }),
-    password_confirmation: z
-      .string()
-      .min(1, { message: "Veuillez confirmer le mot de passe" }),
+      .optional()
+      .or(z.literal("")),
+    password_confirmation: z.string().optional().or(z.literal("")),
+    permissions: z.array(z.string() as z.ZodType<Permission>),
+    avatar: z.any().optional(),
   })
-  .refine((data) => data.password === data.password_confirmation, {
-    message: "Les mots de passe ne correspondent pas",
-    path: ["password_confirmation"],
-  });
+  .refine(
+    (data) => {
+      // If password is provided, password_confirmation must match
+      if (data.password && data.password.length > 0) {
+        return data.password === data.password_confirmation;
+      }
+      return true;
+    },
+    {
+      message: "Les mots de passe ne correspondent pas",
+      path: ["password_confirmation"],
+    }
+  );
 
-type UpdateInfoValues = z.infer<typeof updateInfoSchema>;
-type UpdatePasswordValues = z.infer<typeof updatePasswordSchema>;
+type UpdateUserValues = z.infer<typeof updateUserSchema>;
 
 interface UpdateUserDialogProps {
   open: boolean;
   setOpen: (open: boolean) => void;
-  user: User;
+  userId: string;
 }
 
 export function UpdateUserDialog({
   open,
   setOpen,
-  user,
+  userId,
 }: UpdateUserDialogProps) {
   const queryClient = useQueryClient();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("info");
+  const [activeTab, setActiveTab] = React.useState("info");
 
-  // Formulaire pour la mise à jour des informations
-  const infoForm = useForm<UpdateInfoValues>({
-    resolver: zodResolver(updateInfoSchema),
+  // Fetch user data with useQuery
+  const { data: userData, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => getUser(userId),
+    enabled: open && !!userId,
+  });
+
+  // Create form with react-hook-form
+  const form = useForm<UpdateUserValues>({
+    resolver: zodResolver(updateUserSchema),
     defaultValues: {
-      name: user.name,
-      email: user.email,
-      status: (user.status as "active" | "inactive") || "active",
+      name: userData?.name || "",
+      email: userData?.email || "",
+      status: (userData?.status as "active" | "inactive") || "active",
+      password: "",
+      password_confirmation: "",
+      permissions: userData?.permissions?.map((p) => p.name) || [],
+      avatar: undefined,
     },
   });
 
-  // Formulaire pour la mise à jour du mot de passe
-  const passwordForm = useForm<UpdatePasswordValues>({
-    resolver: zodResolver(updatePasswordSchema),
-    defaultValues: {
-      password: "",
-      password_confirmation: "",
-    },
-  });
+  // Update form values when user data is loaded
+  React.useEffect(() => {
+    if (userData) {
+      form.reset({
+        name: userData.name,
+        email: userData.email,
+        status: (userData.status as "active" | "inactive") || "active",
+        password: "",
+        password_confirmation: "",
+        permissions: userData?.permissions?.map((p) => p.name) || [],
+        avatar: undefined,
+      });
+    }
+  }, [userData, form]);
 
-  // Réinitialiser les formulaires lorsque l'utilisateur change
-  useEffect(() => {
-    // Réinitialiser le formulaire d'informations avec les données du nouvel utilisateur
-    infoForm.reset({
-      name: user.name,
-      email: user.email,
-      status: (user.status as "active" | "inactive") || "active",
-    });
+  // Handle avatar change
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      form.setValue("avatar", file);
+    }
+  };
 
-    // Réinitialiser le formulaire de mot de passe
-    passwordForm.reset({
-      password: "",
-      password_confirmation: "",
-    });
-
-    // Réinitialiser l'avatar
-    setAvatarFile(null);
-    setAvatarPreview(null);
-
-    // Réinitialiser l'onglet actif
-    setActiveTab("info");
-  }, [user, infoForm, passwordForm]);
-
-  // Obtenir les initiales de l'utilisateur pour l'avatar
+  // Get user initials for avatar fallback
   const getUserInitials = () => {
-    return user.name
+    if (!userData) return "";
+    return userData.name
       .split(" ")
       .map((n: string) => n[0])
       .join("")
@@ -153,84 +163,56 @@ export function UpdateUserDialog({
       .substring(0, 2);
   };
 
-  // Gérer le changement d'avatar
-  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setAvatarFile(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setAvatarPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Soumettre le formulaire d'informations
-  const onInfoSubmit = async (data: UpdateInfoValues) => {
-    setIsSubmitting(true);
-
-    try {
-      // Ajouter l'avatar s'il a été modifié
-      const userData = {
+  // Create mutation for updating user
+  const updateUserMutation = useMutation({
+    mutationFn: (data: UpdateUserValues) => {
+      // Only include password fields if password is provided
+      const updateData = {
         ...data,
-        avatar: avatarFile || undefined,
+        password:
+          data.password && data.password.length > 0 ? data.password : undefined,
+        password_confirmation:
+          data.password && data.password.length > 0
+            ? data.password_confirmation
+            : undefined,
       };
-
-      await updateUser(user.id, userData);
-
-      // Rafraîchir la liste des utilisateurs
+      return updateUser(userId, updateData);
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-
+      queryClient.invalidateQueries({ queryKey: ["user", userId] });
       toast.success(
         "Les informations de l'utilisateur ont été mises à jour avec succès"
       );
-
-      // Fermer le dialogue
       setOpen(false);
-    } catch (error) {
-      toast.error(
-        "Erreur lors de la mise à jour des informations de l'utilisateur"
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    },
+    onError: () => {
+      toast.error("Erreur lors de la mise à jour de l'utilisateur");
+    },
+  });
+
+  // Submit handler
+  const onSubmit = (data: UpdateUserValues) => {
+    updateUserMutation.mutate(data);
   };
 
-  // Soumettre le formulaire de mot de passe
-  const onPasswordSubmit = async (data: UpdatePasswordValues) => {
-    setIsSubmitting(true);
-
-    try {
-      await updateUser(user.id, {
-        password: data.password,
-        password_confirmation: data.password_confirmation,
-      });
-
-      // Rafraîchir la liste des utilisateurs
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-
-      toast.success("Le mot de passe a été mis à jour avec succès");
-
-      // Réinitialiser le formulaire
-      passwordForm.reset({
-        password: "",
-        password_confirmation: "",
-      });
-
-      // Fermer le dialogue
-      setOpen(false);
-    } catch (error) {
-      toast.error("Erreur lors de la mise à jour du mot de passe");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Fermer le dialogue
+  // Close dialog handler
   const handleClose = () => {
     setOpen(false);
   };
+
+  // Show loading state while fetching user data
+  if (isLoading) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[500px]">
+          <div className="flex items-center justify-center p-6">
+            <p>Chargement...</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -238,26 +220,32 @@ export function UpdateUserDialog({
         <DialogHeader>
           <DialogTitle>Modifier l'utilisateur</DialogTitle>
           <DialogDescription>
-            Modifiez les informations de l'utilisateur {user.name}.
+            Modifiez les informations de l'utilisateur {userData?.name}.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="info">Informations</TabsTrigger>
-            <TabsTrigger value="password">Mot de passe</TabsTrigger>
-          </TabsList>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="w-full"
+            >
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="info">Informations</TabsTrigger>
+                <TabsTrigger value="password">Mot de passe</TabsTrigger>
+                <TabsTrigger value="permissions">Permissions</TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="info" className="mt-4">
-            <Form {...infoForm}>
-              <form
-                onSubmit={infoForm.handleSubmit(onInfoSubmit)}
-                className="space-y-4"
-              >
+              <TabsContent value="info" className="mt-4 space-y-4">
                 <div className="flex flex-col items-center mb-4">
                   <Avatar className="w-24 h-24 border border-gray-200 mb-2">
                     <AvatarImage
-                      src={avatarPreview || user.avatar || ""}
+                      src={
+                        form.watch("avatar")
+                          ? URL.createObjectURL(form.watch("avatar") as File)
+                          : userData?.avatar || ""
+                      }
                       alt="Avatar"
                     />
                     <AvatarFallback>{getUserInitials()}</AvatarFallback>
@@ -282,7 +270,7 @@ export function UpdateUserDialog({
                 </div>
 
                 <FormField
-                  control={infoForm.control}
+                  control={form.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
@@ -296,7 +284,7 @@ export function UpdateUserDialog({
                 />
 
                 <FormField
-                  control={infoForm.control}
+                  control={form.control}
                   name="email"
                   render={({ field }) => (
                     <FormItem>
@@ -314,7 +302,7 @@ export function UpdateUserDialog({
                 />
 
                 <FormField
-                  control={infoForm.control}
+                  control={form.control}
                   name="status"
                   render={({ field }) => (
                     <FormItem>
@@ -324,7 +312,7 @@ export function UpdateUserDialog({
                         defaultValue={field.value}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Sélectionner un statut" />
                           </SelectTrigger>
                         </FormControl>
@@ -337,27 +325,11 @@ export function UpdateUserDialog({
                     </FormItem>
                   )}
                 />
+              </TabsContent>
 
-                <DialogFooter className="mt-6">
-                  <Button type="button" variant="outline" onClick={handleClose}>
-                    Annuler
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Mise à jour..." : "Mettre à jour"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </TabsContent>
-
-          <TabsContent value="password" className="mt-4">
-            <Form {...passwordForm}>
-              <form
-                onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}
-                className="space-y-4"
-              >
+              <TabsContent value="password" className="mt-4 space-y-4">
                 <FormField
-                  control={passwordForm.control}
+                  control={form.control}
                   name="password"
                   render={({ field }) => (
                     <FormItem>
@@ -379,7 +351,7 @@ export function UpdateUserDialog({
                 />
 
                 <FormField
-                  control={passwordForm.control}
+                  control={form.control}
                   name="password_confirmation"
                   render={({ field }) => (
                     <FormItem>
@@ -395,21 +367,72 @@ export function UpdateUserDialog({
                     </FormItem>
                   )}
                 />
+              </TabsContent>
 
-                <DialogFooter className="mt-6">
-                  <Button type="button" variant="outline" onClick={handleClose}>
-                    Annuler
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting
-                      ? "Mise à jour..."
-                      : "Mettre à jour le mot de passe"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </TabsContent>
-        </Tabs>
+              <TabsContent value="permissions" className="mt-4">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium mb-3">Permissions</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <Controller
+                        control={form.control}
+                        name="permissions"
+                        render={({ field }) => (
+                          <>
+                            {permissionLabels.map((permission) => (
+                              <div
+                                key={permission.value}
+                                className="flex items-start space-x-2"
+                              >
+                                <Checkbox
+                                  id={permission.value}
+                                  checked={field.value.includes(
+                                    permission.value
+                                  )}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      field.onChange([
+                                        ...field.value,
+                                        permission.value,
+                                      ]);
+                                    } else {
+                                      field.onChange(
+                                        field.value.filter(
+                                          (p) => p !== permission.value
+                                        )
+                                      );
+                                    }
+                                  }}
+                                />
+                                <label
+                                  htmlFor={permission.value}
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  {permission.label}
+                                </label>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="outline" onClick={handleClose}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={updateUserMutation.isPending}>
+                {updateUserMutation.isPending
+                  ? "Mise à jour..."
+                  : "Mettre à jour"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

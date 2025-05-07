@@ -2,8 +2,10 @@
 
 import StorageUsage from "@/components/dashboard/storage-usage";
 import FileExplorer from "@/components/dashboard/file-explorer";
+import { usePermission } from "@/hooks/usePermission";
 
 export default function FileManagement() {
+  const { canViewDocuments } = usePermission();
   return (
     <div className="min-h-screen bg-white text-gray-800 font-sans">
       <main className="mx-auto px-6 py-4">
@@ -13,9 +15,11 @@ export default function FileManagement() {
 
         {/* Recent Files Section */}
 
-        <div className="lg:col-span-1">
-          <FileExplorer />
-        </div>
+        {canViewDocuments && (
+          <div className="lg:col-span-1">
+            <FileExplorer />
+          </div>
+        )}
       </main>
     </div>
   );
