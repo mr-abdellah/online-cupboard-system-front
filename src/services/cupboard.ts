@@ -36,6 +36,27 @@ export interface CupboardResponse {
     cupboard_id: string;
     order: number;
   }>;
+  can_manage: boolean;
+}
+
+export interface CupboardSummary {
+  id: string;
+  name: string;
+  order: number;
+  created_at: string;
+  updated_at: string;
+  can_manage: boolean;
+  binders?: Array<{
+    id: string;
+    name: string;
+    cupboard_id: string;
+    order: number;
+  }>;
+}
+
+export async function getAllCupboards(): Promise<CupboardSummary[]> {
+  const response = await api.get("/cupboards/all");
+  return response.data;
 }
 
 export async function getCupboards(

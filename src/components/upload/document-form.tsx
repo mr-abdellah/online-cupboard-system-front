@@ -30,12 +30,14 @@ interface DocumentFormProps {
   selectedFile: File | null;
   filePreview: string | null;
   handleCupboardChange: (cupboardId: string) => void;
+  handleBinderChange?: (binderId: string) => void; // Add this line
   setTagInput: (value: string) => void;
   handleAddTag: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   handleRemoveTag: (tag: string) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   setSelectedFile: (file: File | null) => void;
   setFilePreview: (preview: string | null) => void;
+  selectedBinderId?: string;
 }
 
 export default function DocumentForm({
@@ -48,6 +50,7 @@ export default function DocumentForm({
   selectedFile,
   filePreview,
   handleCupboardChange,
+  handleBinderChange, // Add this line
   setTagInput,
   handleAddTag,
   handleRemoveTag,
@@ -61,7 +64,6 @@ export default function DocumentForm({
     setValue,
     formState: { errors },
   } = form;
-
   // Obtenir les classeurs de l'armoire sélectionnée
   const selectedCupboard = cupboards?.find((c) => c.id === selectedCupboardId);
   const binders = selectedCupboard?.binders || [];
@@ -136,8 +138,12 @@ export default function DocumentForm({
                 <Select
                   onValueChange={(value) => {
                     field.onChange(value);
+                    // Call handleBinderChange if it exists
+                    if (handleBinderChange) {
+                      handleBinderChange(value);
+                    }
                   }}
-                  value={field.value}
+                  value={field.value || ""}
                   disabled={!selectedCupboardId || binders.length === 0}
                 >
                   <SelectTrigger id="binder" className="mt-1">

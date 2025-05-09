@@ -20,9 +20,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { mutate, isPending } = useMutation({
     mutationFn: login,
-    onSuccess: (data) => {
-      // Handle successful login
-      console.log("Login successful:", data);
+    onSuccess: () => {
       navigate("/dashboard");
     },
     onError: (error) => {

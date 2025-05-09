@@ -20,6 +20,7 @@ export interface DocumentUserPermission {
   type: string;
   path: string;
   is_searchable: boolean;
+  is_public: boolean;
   tags: string[];
   binder_id: string;
   created_at: string;
@@ -42,15 +43,16 @@ export interface DocumentWithUsersResponse {
 // API function to update (store or update) permissions for multiple users on a document
 export async function updateDocumentPermissions(
   documentId: string,
-  users: UserPermission[]
+  users: UserPermission[],
+  is_public?: boolean
 ): Promise<BulkPermissionResponse> {
   const response = await api.post(
     `/document/${documentId}/manage-permissions`,
-    { documentId, users },
+    { documentId, users, is_public },
     {
       headers: {
-        'Content-Type': 'application/json'
-      }
+        "Content-Type": "application/json",
+      },
     }
   );
   return response.data;

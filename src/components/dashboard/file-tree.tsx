@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getCupboards } from "@/services/cupboard";
 import {
@@ -28,10 +28,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Import des images pour les icônes
 import folderSvg from "@/assets/folder.svg";
 import binderPng from "@/assets/binder.png";
+import lockSvg from "@/assets/lock.svg";
 
 // Import des dialogs
 import { CreateCupboardDialog } from "../cupboard/create-cupboard-dialog";
@@ -44,6 +51,8 @@ import { MoveBinderDialog } from "../binder/move-binder-dialog";
 import type { CupboardResponse } from "@/services/cupboard";
 import type { BinderResponse } from "@/services/binder";
 import { usePermission } from "@/hooks/usePermission";
+import { Lock, X } from "lucide-react";
+import { useNavigate } from "react-router";
 
 interface FileTreeProps {
   selectedItem: { id: string; type: "cupboard" | "binder" } | null;
@@ -66,6 +75,8 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   >({});
   const dropdownRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const parentRef = useRef<HTMLDivElement>(null);
+  const hadFilterBefore = useRef(false);
+  const navigate = useNavigate();
 
   const { canEditDocuments, canDeleteDocument, canUploadDocuments } =
     usePermission();
@@ -74,6 +85,7 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const manuallyCollapsed = useRef<Record<string, boolean>>({});
 
   // États pour les dialogs
   const [createCupboardOpen, setCreateCupboardOpen] = useState(false);
@@ -107,41 +119,29 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   });
 
   // Memoize sorted cupboards to avoid unnecessary re-sorting
-  // Sort cupboards directly without useMemo
-  const sortedCupboards = data
-    ? [...data].sort((a, b) => a.order - b.order)
-    : [];
-
-  // Fix for accessibility issue - close dropdowns when dialog opens
-  useEffect(() => {
-    if (
-      createCupboardOpen ||
-      renameCupboardOpen ||
-      deleteCupboardOpen ||
-      createBinderOpen ||
-      renameBinderOpen ||
-      deleteBinderOpen ||
-      moveBinderOpen
-    ) {
-      // Close any open dropdowns
-      document.body.click();
-    }
-  }, [
-    createCupboardOpen,
-    renameCupboardOpen,
-    deleteCupboardOpen,
-    createBinderOpen,
-    renameBinderOpen,
-    deleteBinderOpen,
-    moveBinderOpen,
-  ]);
+  // Replace the direct sorting with useMemo
+  const sortedCupboards = useMemo(() => {
+    return data ? [...data].sort((a, b) => a.order - b.order) : [];
+  }, [data]);
 
   // Fonction pour basculer l'état d'expansion d'une armoire
   const toggleCupboard = useCallback((cupboardId: string) => {
-    setExpandedCupboards((prev) => ({
-      ...prev,
-      [cupboardId]: !prev[cupboardId],
-    }));
+    setExpandedCupboards((prev) => {
+      const newState = !prev[cupboardId];
+
+      // Track when a user manually collapses a cupboard
+      if (!newState) {
+        manuallyCollapsed.current[cupboardId] = true;
+      } else {
+        // If they expand it again, remove from manually collapsed
+        delete manuallyCollapsed.current[cupboardId];
+      }
+
+      return {
+        ...prev,
+        [cupboardId]: newState,
+      };
+    });
   }, []);
 
   // Handle filter selection
@@ -167,19 +167,25 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   const handleCreateCupboard = useCallback(() => {
     if (!canUploadDocuments) return;
     setCreateCupboardOpen(true);
-  }, []);
+  }, [canUploadDocuments]);
 
-  const handleRenameCupboard = useCallback((cupboard: CupboardResponse) => {
-    if (!canEditDocuments) return;
-    setSelectedCupboardForAction(cupboard);
-    setRenameCupboardOpen(true);
-  }, []);
+  const handleRenameCupboard = useCallback(
+    (cupboard: CupboardResponse) => {
+      if (!canEditDocuments) return;
+      setSelectedCupboardForAction(cupboard);
+      setRenameCupboardOpen(true);
+    },
+    [canEditDocuments]
+  );
 
-  const handleDeleteCupboard = useCallback((cupboard: CupboardResponse) => {
-    if (!canDeleteDocument) return;
-    setSelectedCupboardForAction(cupboard);
-    setDeleteCupboardOpen(true);
-  }, []);
+  const handleDeleteCupboard = useCallback(
+    (cupboard: CupboardResponse) => {
+      if (!canDeleteDocument) return;
+      setSelectedCupboardForAction(cupboard);
+      setDeleteCupboardOpen(true);
+    },
+    [canDeleteDocument]
+  );
 
   const handleCreateBinder = useCallback(
     (cupboardId: string) => {
@@ -189,26 +195,35 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
       );
       setCreateBinderOpen(true);
     },
-    [data]
+    [data, canUploadDocuments]
   );
 
-  const handleRenameBinder = useCallback((binder: BinderResponse) => {
-    if (!canEditDocuments) return;
-    setSelectedBinderForAction(binder);
-    setRenameBinderOpen(true);
-  }, []);
+  const handleRenameBinder = useCallback(
+    (binder: BinderResponse) => {
+      if (!canEditDocuments) return;
+      setSelectedBinderForAction(binder);
+      setRenameBinderOpen(true);
+    },
+    [canEditDocuments]
+  );
 
-  const handleDeleteBinder = useCallback((binder: BinderResponse) => {
-    if (!canDeleteDocument) return;
-    setSelectedBinderForAction(binder);
-    setDeleteBinderOpen(true);
-  }, []);
+  const handleDeleteBinder = useCallback(
+    (binder: BinderResponse) => {
+      if (!canDeleteDocument) return;
+      setSelectedBinderForAction(binder);
+      setDeleteBinderOpen(true);
+    },
+    [canDeleteDocument]
+  );
 
-  const handleMoveBinder = useCallback((binder: BinderResponse) => {
-    if (!canEditDocuments) return;
-    setSelectedBinderForAction(binder);
-    setMoveBinderOpen(true);
-  }, []);
+  const handleMoveBinder = useCallback(
+    (binder: BinderResponse) => {
+      if (!canEditDocuments) return;
+      setSelectedBinderForAction(binder);
+      setMoveBinderOpen(true);
+    },
+    [canEditDocuments]
+  );
 
   // Effet pour auto-expand lorsqu'un classeur est sélectionné via l'URL
   useEffect(() => {
@@ -218,7 +233,12 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
         (c) => c.binders && c.binders.some((b) => b.id === selectedItem.id)
       );
 
-      if (cupboard && !expandedCupboards[cupboard.id]) {
+      // Only auto-expand if the user hasn't manually collapsed this cupboard
+      if (
+        cupboard &&
+        !expandedCupboards[cupboard.id] &&
+        !manuallyCollapsed.current[cupboard.id]
+      ) {
         setExpandedCupboards((prev) => ({
           ...prev,
           [cupboard.id]: true,
@@ -227,19 +247,25 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
     }
   }, [selectedItem, data, expandedCupboards]);
 
-  // Expand all cupboards when there is a search or filter
   useEffect(() => {
-    if (debouncedSearchQuery || typeFilter) {
-      // Expand all cupboards when there is a search or filter
-      setExpandedCupboards((prev) => {
-        const newExpanded = { ...prev };
-        sortedCupboards?.forEach((cupboard) => {
+    // Only expand cupboards when search/filter is initially applied
+    const hasFilter = Boolean(debouncedSearchQuery) || Boolean(typeFilter);
+
+    if (hasFilter && !hadFilterBefore.current && sortedCupboards?.length) {
+      const newExpanded = { ...expandedCupboards };
+      sortedCupboards.forEach((cupboard) => {
+        // Only auto-expand if not manually collapsed
+        if (!manuallyCollapsed.current[cupboard.id]) {
           newExpanded[cupboard.id] = true;
-        });
-        return newExpanded;
+        }
       });
+      setExpandedCupboards(newExpanded);
     }
-  }, [debouncedSearchQuery, typeFilter, sortedCupboards]);
+
+    hadFilterBefore.current = hasFilter;
+    // We intentionally only want this to run when the search/filter changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchQuery, typeFilter]);
 
   // État de chargement
   if (isLoading) {
@@ -283,458 +309,529 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   }
 
   return (
-    <div
-      className="bg-white rounded-lg shadow-sm p-4 border border-gray-100 h-full flex flex-col"
-      ref={parentRef}
-    >
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">
-          Armoires Documentaires
-          {data && (
-            <span className="ml-2 text-sm font-normal text-gray-500">
-              ({data.length})
-            </span>
+    <TooltipProvider>
+      <div
+        className="bg-white rounded-lg shadow-sm p-4 border border-gray-100 h-full flex flex-col"
+        ref={parentRef}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Armoires Documentaires
+            {data && (
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                ({data.length})
+              </span>
+            )}
+          </h3>
+          {canUploadDocuments && (
+            <button
+              className="text-[#3b5de7] hover:text-[#2d4ccc] p-1 rounded-md hover:bg-blue-50 transition-colors"
+              onClick={handleCreateCupboard}
+            >
+              <FiPlus size={18} />
+            </button>
           )}
-        </h3>
-        {canUploadDocuments && (
-          <button
-            className="text-[#3b5de7] hover:text-[#2d4ccc] p-1 rounded-md hover:bg-blue-50 transition-colors"
-            onClick={handleCreateCupboard}
-          >
-            <FiPlus size={18} />
-          </button>
-        )}
-      </div>
-
-      {/* Search and Filter Section */}
-      <div className="mb-4 space-y-2">
-        <div className="flex gap-2">
-          <div className="relative flex-grow">
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="Rechercher..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-4 py-2 w-full"
-            />
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="relative">
-                <FiFilter size={16} />
-                {typeFilter && (
-                  <span className="absolute top-0 right-0 w-2 h-2 bg-[#3b5de7] rounded-full"></span>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="px-2 py-1.5 text-sm font-medium">
-                Types de documents
-              </div>
-              <DropdownMenuSeparator />
-              {documentTypes.map((type) => (
-                <DropdownMenuCheckboxItem
-                  key={type.value}
-                  checked={typeFilter === type.value}
-                  onCheckedChange={() => handleFilterSelect(type.value)}
-                >
-                  {type.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={clearFilters}
-                className="justify-center text-[#3b5de7]"
-              >
-                Réinitialiser les filtres
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
-        {/* Active filters */}
-        {(debouncedSearchQuery || typeFilter) && (
-          <div className="flex flex-wrap gap-2">
-            {debouncedSearchQuery && (
-              <Badge variant="secondary" className="flex items-center gap-1">
-                Recherche: {debouncedSearchQuery}
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="ml-1 hover:text-gray-700"
-                >
-                  ×
-                </button>
-              </Badge>
-            )}
-            {typeFilter && (
-              <Badge variant="secondary" className="flex items-center gap-1">
-                Type:{" "}
-                {documentTypes.find((t) => t.value === typeFilter)?.label ||
-                  typeFilter}
-                <button
-                  onClick={() => setTypeFilter("")}
-                  className="ml-1 hover:text-gray-700"
-                >
-                  ×
-                </button>
-              </Badge>
-            )}
-            <button
-              onClick={clearFilters}
-              className="text-xs text-gray-500 hover:text-gray-700 underline"
-            >
-              Effacer tout
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div
-        className="space-y-1 overflow-auto flex-grow"
-        style={{ maxHeight: "calc(100vh - 200px)" }}
-      >
-        {sortedCupboards.length > 0 ? (
-          <>
-            {sortedCupboards.map((cupboard) => {
-              // Get all binders for this cupboard
-              const allBinders = cupboard.binders || [];
-
-              // Trier les classeurs par ordre
-              const sortedBinders = allBinders
-                ? [...allBinders].sort((a, b) => a.order - b.order)
-                : [];
-
-              const isExpanded = expandedCupboards[cupboard.id] || false;
-              const isSelected =
-                selectedItem?.id === cupboard.id &&
-                selectedItem?.type === "cupboard";
-              const bindersCount = cupboard.binders
-                ? cupboard.binders.length
-                : 0;
-
-              return (
-                <div key={cupboard.id} className="select-none">
-                  {/* Armoire */}
-                  <div
-                    className={`flex items-center py-1.5 px-2 rounded-md cursor-pointer ${
-                      isSelected
-                        ? "bg-[#f0f4ff] text-[#3b5de7]"
-                        : "hover:bg-gray-50"
-                    }`}
+        {/* Search and Filter Section */}
+        <div className="mb-4 space-y-2">
+          <div className="flex gap-2">
+            <div className="relative flex-grow">
+              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Rechercher..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-4 py-2 w-full"
+              />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="relative">
+                  <FiFilter size={16} />
+                  {typeFilter && (
+                    <span className="absolute top-0 right-0 w-2 h-2 bg-[#3b5de7] rounded-full"></span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5 text-sm font-medium">
+                  Types de documents
+                </div>
+                <DropdownMenuSeparator />
+                {documentTypes.map((type) => (
+                  <DropdownMenuCheckboxItem
+                    key={type.value}
+                    checked={typeFilter === type.value}
+                    onCheckedChange={() => handleFilterSelect(type.value)}
                   >
-                    <span
-                      className="mr-1 text-gray-500 cursor-pointer"
-                      onClick={() => toggleCupboard(cupboard.id)}
+                    {type.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={clearFilters}
+                  className="justify-center text-[#3b5de7]"
+                >
+                  Réinitialiser les filtres
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Active filters */}
+          {(debouncedSearchQuery || typeFilter) && (
+            <div className="flex flex-wrap gap-2">
+              {debouncedSearchQuery && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  Recherche: {debouncedSearchQuery}
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="ml-1 hover:text-gray-700"
+                  >
+                    <X size={14} />
+                  </button>
+                </Badge>
+              )}
+              {typeFilter && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  Type:{" "}
+                  {documentTypes.find((t) => t.value === typeFilter)?.label ||
+                    typeFilter}
+                  <button
+                    onClick={() => setTypeFilter("")}
+                    className="ml-1 hover:text-gray-700"
+                  >
+                    <X size={14} />
+                  </button>
+                </Badge>
+              )}
+              <button
+                onClick={clearFilters}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Effacer tout
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="space-y-1 overflow-auto flex-grow"
+          style={{ maxHeight: "calc(100vh - 200px)" }}
+        >
+          {sortedCupboards.length > 0 ? (
+            <>
+              {sortedCupboards.map((cupboard) => {
+                // Get all binders for this cupboard
+                const allBinders = cupboard.binders || [];
+
+                // Trier les classeurs par ordre
+                const sortedBinders = allBinders
+                  ? [...allBinders].sort((a, b) => a.order - b.order)
+                  : [];
+
+                const isExpanded = expandedCupboards[cupboard.id] || false;
+                const isSelected =
+                  selectedItem?.id === cupboard.id &&
+                  selectedItem?.type === "cupboard";
+                const bindersCount = cupboard.binders
+                  ? cupboard.binders.length
+                  : 0;
+
+                // Vérifier si l'utilisateur peut gérer cette armoire
+                const canManageCupboard = cupboard.can_manage !== false;
+
+                return (
+                  <div key={cupboard.id} className="select-none">
+                    {/* Armoire */}
+                    <div
+                      className={`flex items-center py-1.5 px-2 rounded-md cursor-pointer ${
+                        isSelected
+                          ? "bg-[#f0f4ff] text-[#3b5de7]"
+                          : "hover:bg-gray-50"
+                      }`}
                     >
-                      {isExpanded ? (
-                        <FiChevronDown size={16} />
-                      ) : (
-                        <FiChevronRight size={16} />
-                      )}
-                    </span>
-                    <span
-                      className="mr-2 cursor-pointer flex-grow flex items-center"
-                      onClick={() => {
-                        toggleCupboard(cupboard.id);
-                        onSelect(cupboard.id, "cupboard");
-                      }}
-                    >
-                      <img
-                        src={folderSvg || "/placeholder.svg"}
-                        alt="Dossier"
-                        className={`w-5 h-5 mr-2 ${
-                          isSelected ? "opacity-100" : "opacity-70"
-                        }`}
-                        loading="lazy"
-                      />
-                      <span className="text-sm font-medium truncate">
-                        {cupboard.name}
+                      <span
+                        className="mr-1 text-gray-500 cursor-pointer"
+                        onClick={() => {
+                          if (!canManageCupboard) return;
+                          onSelect(cupboard.id, "cupboard");
+                          toggleCupboard(cupboard.id);
+                        }}
+                      >
+                        {isExpanded ? (
+                          <FiChevronDown size={16} />
+                        ) : (
+                          <FiChevronRight size={16} />
+                        )}
                       </span>
-                    </span>
-                    <span className="text-xs text-gray-400 mr-2">
-                      {bindersCount}
-                    </span>
+                      <span
+                        className="mr-2 cursor-pointer flex-grow flex items-center"
+                        onClick={() => {
+                          if (!canManageCupboard) return;
+                          toggleCupboard(cupboard.id);
+                          onSelect(cupboard.id, "cupboard");
+                        }}
+                      >
+                        <img
+                          src={folderSvg || "/placeholder.svg"}
+                          alt="Dossier"
+                          className={`w-5 h-5 mr-2 ${
+                            isSelected ? "opacity-100" : "opacity-70"
+                          }`}
+                          loading="lazy"
+                        />
+                        <span className="text-sm font-medium truncate">
+                          {cupboard.name}
+                        </span>
+                      </span>
+                      <span className="text-xs text-gray-400 mr-2">
+                        {bindersCount}
+                      </span>
 
-                    {/* Menu à trois points pour l'armoire avec shadcn/ui DropdownMenu */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          ref={(el) => {
-                            dropdownRefs.current[`cupboard-${cupboard.id}`] =
-                              el;
-                          }}
-                          className="text-gray-400 hover:text-gray-600 p-1 focus:outline-none"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <svg
-                            width="15"
-                            height="15"
-                            viewBox="0 0 15 15"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4"
-                          >
-                            <path
-                              d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM13.625 7.5C13.625 8.12132 13.1213 8.625 12.5 8.625C11.8787 8.625 11.375 8.12132 11.375 7.5C11.375 6.87868 11.8787 6.375 12.5 6.375C13.1213 6.375 13.625 6.87868 13.625 7.5Z"
-                              fill="currentColor"
-                              fillRule="evenodd"
-                              clipRule="evenodd"
-                            ></path>
-                          </svg>
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
-                        {canEditDocuments && (
-                          <DropdownMenuItem
-                            className="flex items-center cursor-pointer"
-                            onClick={() => handleRenameCupboard(cupboard)}
-                          >
-                            <FiEdit className="mr-2" size={14} />
-                            <span>Renommer</span>
-                          </DropdownMenuItem>
-                        )}
-
-                        {canDeleteDocument && (
-                          <DropdownMenuItem
-                            className="flex items-center text-red-500 cursor-pointer"
-                            onClick={() => handleDeleteCupboard(cupboard)}
-                          >
-                            <FiTrash2 className="mr-2" size={14} />
-                            <span>Supprimer</span>
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  {/* Classeurs */}
-                  {isExpanded && (
-                    <div className="ml-6 pl-2 border-l border-gray-200 mt-1 space-y-1">
-                      {sortedBinders.map((binder) => {
-                        // Ensure binder has all required properties for BinderResponse
-                        const completeBinder: BinderResponse = {
-                          ...binder,
-                          // Add missing properties if they don't exist
-                          created_at: new Date().toISOString(),
-                          updated_at: new Date().toISOString(),
-                        };
-
-                        const isBinderSelected =
-                          selectedItem?.id === binder.id &&
-                          selectedItem?.type === "binder";
-
-                        return (
-                          <div
-                            key={binder.id}
-                            className={`flex items-center py-1.5 px-2 rounded-md cursor-pointer ${
-                              isBinderSelected
-                                ? "bg-[#f0f4ff] text-[#3b5de7]"
-                                : "hover:bg-gray-50"
-                            }`}
-                          >
-                            <span
-                              className="flex items-center flex-grow cursor-pointer"
-                              onClick={() => onSelect(binder.id, "binder")}
+                      {/* Afficher soit le menu à trois points, soit l'icône de cadenas selon les permissions */}
+                      {canManageCupboard ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              ref={(el) => {
+                                dropdownRefs.current[
+                                  `cupboard-${cupboard.id}`
+                                ] = el;
+                              }}
+                              className="text-gray-400 hover:text-gray-600 p-1 focus:outline-none"
+                              onClick={(e) => e.stopPropagation()}
                             >
+                              <svg
+                                width="15"
+                                height="15"
+                                viewBox="0 0 15 15"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                              >
+                                <path
+                                  d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM13.625 7.5C13.625 8.12132 13.1213 8.625 12.5 8.625C11.8787 8.625 11.375 8.12132 11.375 7.5C11.375 6.87868 11.8787 6.375 12.5 6.375C13.1213 6.375 13.625 6.87868 13.625 7.5Z"
+                                  fill="currentColor"
+                                  fillRule="evenodd"
+                                  clipRule="evenodd"
+                                ></path>
+                              </svg>
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            {canEditDocuments && (
+                              <DropdownMenuItem
+                                className="flex items-center cursor-pointer"
+                                onClick={() => handleRenameCupboard(cupboard)}
+                              >
+                                <FiEdit className="mr-2" size={14} />
+                                <span>Renommer</span>
+                              </DropdownMenuItem>
+                            )}
+
+                            {canEditDocuments && (
+                              <DropdownMenuItem
+                                className="flex items-center cursor-pointer"
+                                onClick={() => {
+                                  navigate(
+                                    `/cupboards/${cupboard?.id}/permissions`
+                                  );
+                                }}
+                              >
+                                <Lock className="mr-2" size={14} />
+                                <span>Permissions</span>
+                              </DropdownMenuItem>
+                            )}
+
+                            {canDeleteDocument && (
+                              <DropdownMenuItem
+                                className="flex items-center text-red-500 cursor-pointer"
+                                onClick={() => handleDeleteCupboard(cupboard)}
+                              >
+                                <FiTrash2 className="mr-2" size={14} />
+                                <span>Supprimer</span>
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="p-1">
                               <img
-                                src={binderPng || "/placeholder.svg"}
-                                alt="Classeur"
-                                className={`w-5 h-5 mr-2 ${
-                                  isBinderSelected
-                                    ? "opacity-100"
-                                    : "opacity-70"
-                                }`}
-                                loading="lazy"
+                                src={lockSvg || "/placeholder.svg"}
+                                alt="Verrouillé"
+                                className="w-4 h-4 text-gray-400"
                               />
-                              <span className="text-sm truncate">
-                                {binder.name}
-                              </span>
-                            </span>
-
-                            {/* Menu à trois points pour le classeur avec shadcn/ui DropdownMenu */}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  ref={(el) => {
-                                    dropdownRefs.current[
-                                      `binder-${binder.id}`
-                                    ] = el;
-                                  }}
-                                  className="text-gray-400 hover:text-gray-600 p-1 focus:outline-none"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <svg
-                                    width="15"
-                                    height="15"
-                                    viewBox="0 0 15 15"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-4 w-4"
-                                  >
-                                    <path
-                                      d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM13.625 7.5C13.625 8.12132 13.1213 8.625 12.5 8.625C11.8787 8.625 11.375 8.12132 11.375 7.5C11.375 6.87868 11.8787 6.375 12.5 6.375C13.1213 6.375 13.625 6.87868 13.625 7.5Z"
-                                      fill="currentColor"
-                                      fillRule="evenodd"
-                                      clipRule="evenodd"
-                                    ></path>
-                                  </svg>
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-40">
-                                {canEditDocuments && (
-                                  <>
-                                    <DropdownMenuItem
-                                      className="flex items-center cursor-pointer"
-                                      onClick={() =>
-                                        handleRenameBinder(completeBinder)
-                                      }
-                                    >
-                                      <FiEdit className="mr-2" size={14} />
-                                      <span>Renommer</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      className="flex items-center cursor-pointer"
-                                      onClick={() =>
-                                        handleMoveBinder(completeBinder)
-                                      }
-                                    >
-                                      <FiFolder className="mr-2" size={14} />
-                                      <span>Déplacer</span>
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuSeparator />
-                                  </>
-                                )}
-
-                                {canDeleteDocument && (
-                                  <DropdownMenuItem
-                                    className="flex items-center text-red-500 cursor-pointer"
-                                    onClick={() =>
-                                      handleDeleteBinder(completeBinder)
-                                    }
-                                  >
-                                    <FiTrash2 className="mr-2" size={14} />
-                                    <span>Supprimer</span>
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        );
-                      })}
-
-                      {canUploadDocuments && (
-                        <div
-                          className="flex items-center py-1.5 px-2 rounded-md cursor-pointer text-gray-400 hover:bg-gray-50 hover:text-gray-600"
-                          onClick={() => handleCreateBinder(cupboard.id)}
-                        >
-                          <span className="mr-2">
-                            <FiFolderPlus size={16} />
-                          </span>
-                          <span className="text-sm">Ajouter un classeur</span>
-                        </div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              Vous n'avez pas la permission de gérer cette
+                              armoire
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </>
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            <img
-              src={folderSvg || "/placeholder.svg"}
-              alt="Dossier"
-              className="mx-auto mb-2 w-8 h-8 opacity-40"
-            />
-            {debouncedSearchQuery || typeFilter ? (
-              <>
-                <p className="text-sm">Aucun résultat trouvé</p>
-                <button
-                  className="mt-2 text-[#3b5de7] text-sm hover:underline"
-                  onClick={clearFilters}
-                >
-                  Effacer les filtres
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="text-sm">Aucune armoire trouvée</p>
-                <button
-                  className="mt-2 text-[#3b5de7] text-sm hover:underline"
-                  onClick={handleCreateCupboard}
-                >
-                  Créer une armoire
-                </button>
-              </>
-            )}
-          </div>
+
+                    {/* Classeurs */}
+                    {isExpanded && (
+                      <div className="ml-6 pl-2 border-l border-gray-200 mt-1 space-y-1">
+                        {sortedBinders.map((binder) => {
+                          // Ensure binder has all required properties for BinderResponse
+                          const completeBinder: BinderResponse = {
+                            ...binder,
+                            // Add missing properties if they don't exist
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
+                          };
+
+                          const isBinderSelected =
+                            selectedItem?.id === binder.id &&
+                            selectedItem?.type === "binder";
+
+                          return (
+                            <div
+                              key={binder.id}
+                              className={`flex items-center py-1.5 px-2 rounded-md cursor-pointer ${
+                                isBinderSelected
+                                  ? "bg-[#f0f4ff] text-[#3b5de7]"
+                                  : "hover:bg-gray-50"
+                              }`}
+                            >
+                              <span
+                                className="flex items-center flex-grow cursor-pointer"
+                                onClick={() => onSelect(binder.id, "binder")}
+                              >
+                                <img
+                                  src={binderPng || "/placeholder.svg"}
+                                  alt="Classeur"
+                                  className={`w-5 h-5 mr-2 ${
+                                    isBinderSelected
+                                      ? "opacity-100"
+                                      : "opacity-70"
+                                  }`}
+                                  loading="lazy"
+                                />
+                                <span className="text-sm truncate">
+                                  {binder.name}
+                                </span>
+                              </span>
+
+                              {/* Menu à trois points pour le classeur - seulement si l'armoire peut être gérée */}
+                              {canManageCupboard ? (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      ref={(el) => {
+                                        dropdownRefs.current[
+                                          `binder-${binder.id}`
+                                        ] = el;
+                                      }}
+                                      className="text-gray-400 hover:text-gray-600 p-1 focus:outline-none"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <svg
+                                        width="15"
+                                        height="15"
+                                        viewBox="0 0 15 15"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-4 w-4"
+                                      >
+                                        <path
+                                          d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM13.625 7.5C13.625 8.12132 13.1213 8.625 12.5 8.625C11.8787 8.625 11.375 8.12132 11.375 7.5C11.375 6.87868 11.8787 6.375 12.5 6.375C13.1213 6.375 13.625 6.87868 13.625 7.5Z"
+                                          fill="currentColor"
+                                          fillRule="evenodd"
+                                          clipRule="evenodd"
+                                        ></path>
+                                      </svg>
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    className="w-40"
+                                  >
+                                    {canEditDocuments && (
+                                      <>
+                                        <DropdownMenuItem
+                                          className="flex items-center cursor-pointer"
+                                          onClick={() =>
+                                            handleRenameBinder(completeBinder)
+                                          }
+                                        >
+                                          <FiEdit className="mr-2" size={14} />
+                                          <span>Renommer</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="flex items-center cursor-pointer"
+                                          onClick={() =>
+                                            handleMoveBinder(completeBinder)
+                                          }
+                                        >
+                                          <FiFolder
+                                            className="mr-2"
+                                            size={14}
+                                          />
+                                          <span>Déplacer</span>
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuSeparator />
+                                      </>
+                                    )}
+
+                                    {canDeleteDocument && (
+                                      <DropdownMenuItem
+                                        className="flex items-center text-red-500 cursor-pointer"
+                                        onClick={() =>
+                                          handleDeleteBinder(completeBinder)
+                                        }
+                                      >
+                                        <FiTrash2 className="mr-2" size={14} />
+                                        <span>Supprimer</span>
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              ) : (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="p-1">
+                                      <img
+                                        src={lockSvg || "/placeholder.svg"}
+                                        alt="Verrouillé"
+                                        className="w-4 h-4 text-gray-400"
+                                      />
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>
+                                      Vous n'avez pas la permission de gérer ce
+                                      classeur
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {canUploadDocuments && canManageCupboard && (
+                          <div
+                            className="flex items-center py-1.5 px-2 rounded-md cursor-pointer text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                            onClick={() => handleCreateBinder(cupboard.id)}
+                          >
+                            <span className="mr-2">
+                              <FiFolderPlus size={16} />
+                            </span>
+                            <span className="text-sm">Ajouter un classeur</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <img
+                src={folderSvg || "/placeholder.svg"}
+                alt="Dossier"
+                className="mx-auto mb-2 w-8 h-8 opacity-40"
+              />
+              {debouncedSearchQuery || typeFilter ? (
+                <>
+                  <p className="text-sm">Aucun résultat trouvé</p>
+                  <button
+                    className="mt-2 text-[#3b5de7] text-sm hover:underline"
+                    onClick={clearFilters}
+                  >
+                    Effacer les filtres
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm">Aucune armoire trouvée</p>
+                  <button
+                    className="mt-2 text-[#3b5de7] text-sm hover:underline"
+                    onClick={handleCreateCupboard}
+                  >
+                    Créer une armoire
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Dialogs - Only render when open to reduce memory usage */}
+        {createCupboardOpen && (
+          <CreateCupboardDialog
+            open={createCupboardOpen}
+            setOpen={setCreateCupboardOpen}
+            onSuccess={() => {}}
+          />
+        )}
+
+        {renameCupboardOpen && selectedCupboardForAction && (
+          <RenameCupboardDialog
+            cupboard={selectedCupboardForAction}
+            open={renameCupboardOpen}
+            setOpen={setRenameCupboardOpen}
+            onSuccess={() => {}}
+          />
+        )}
+
+        {deleteCupboardOpen && selectedCupboardForAction && (
+          <DeleteCupboardDialog
+            cupboard={selectedCupboardForAction}
+            open={deleteCupboardOpen}
+            setOpen={setDeleteCupboardOpen}
+            onSuccess={() => {}}
+          />
+        )}
+
+        {createBinderOpen && selectedCupboardForAction && (
+          <CreateBinderDialog
+            cupboardId={selectedCupboardForAction.id}
+            open={createBinderOpen}
+            setOpen={setCreateBinderOpen}
+            onSuccess={() => {}}
+          />
+        )}
+
+        {renameBinderOpen && selectedBinderForAction && (
+          <RenameBinderDialog
+            binder={selectedBinderForAction}
+            open={renameBinderOpen}
+            setOpen={setRenameBinderOpen}
+            onSuccess={() => {}}
+          />
+        )}
+
+        {deleteBinderOpen && selectedBinderForAction && (
+          <DeleteBinderDialog
+            binder={selectedBinderForAction}
+            open={deleteBinderOpen}
+            setOpen={setDeleteBinderOpen}
+            onSuccess={() => {}}
+          />
+        )}
+
+        {moveBinderOpen && selectedBinderForAction && (
+          <MoveBinderDialog
+            binder={selectedBinderForAction}
+            open={moveBinderOpen}
+            onOpenChange={setMoveBinderOpen}
+          />
         )}
       </div>
-
-      {/* Dialogs - Only render when open to reduce memory usage */}
-      {createCupboardOpen && (
-        <CreateCupboardDialog
-          open={createCupboardOpen}
-          setOpen={setCreateCupboardOpen}
-          onSuccess={() => {}}
-        />
-      )}
-
-      {renameCupboardOpen && selectedCupboardForAction && (
-        <RenameCupboardDialog
-          cupboard={selectedCupboardForAction}
-          open={renameCupboardOpen}
-          setOpen={setRenameCupboardOpen}
-          onSuccess={() => {}}
-        />
-      )}
-
-      {deleteCupboardOpen && selectedCupboardForAction && (
-        <DeleteCupboardDialog
-          cupboard={selectedCupboardForAction}
-          open={deleteCupboardOpen}
-          setOpen={setDeleteCupboardOpen}
-          onSuccess={() => {}}
-        />
-      )}
-
-      {createBinderOpen && selectedCupboardForAction && (
-        <CreateBinderDialog
-          cupboardId={selectedCupboardForAction.id}
-          open={createBinderOpen}
-          setOpen={setCreateBinderOpen}
-          onSuccess={() => {}}
-        />
-      )}
-
-      {renameBinderOpen && selectedBinderForAction && (
-        <RenameBinderDialog
-          binder={selectedBinderForAction}
-          open={renameBinderOpen}
-          setOpen={setRenameBinderOpen}
-          onSuccess={() => {}}
-        />
-      )}
-
-      {deleteBinderOpen && selectedBinderForAction && (
-        <DeleteBinderDialog
-          binder={selectedBinderForAction}
-          open={deleteBinderOpen}
-          setOpen={setDeleteBinderOpen}
-          onSuccess={() => {}}
-        />
-      )}
-
-      {moveBinderOpen && selectedBinderForAction && (
-        <MoveBinderDialog
-          binder={selectedBinderForAction}
-          open={moveBinderOpen}
-          onOpenChange={setMoveBinderOpen}
-        />
-      )}
-    </div>
+    </TooltipProvider>
   );
 };
 

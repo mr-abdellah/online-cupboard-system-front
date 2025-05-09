@@ -7,38 +7,9 @@ import { FiHardDrive } from "react-icons/fi";
 // Import des icônes depuis le dossier assets
 import pdfPng from "@/assets/pdf.png";
 import imagePng from "@/assets/image.png";
-import videoPng from "@/assets/video.png";
+import ExcelSvg from "@/assets/excel.svg";
 import wordSvg from "@/assets/word.svg";
 import documentSvg from "@/assets/document.svg";
-
-interface StorageUsageResponse {
-  free_space: string;
-  used_space: string;
-  total_space: string;
-  used_space_documents: string;
-  storage_by_type: {
-    pdf: string;
-    image: string;
-    doc: string;
-    video: string;
-    other: string;
-  };
-  file_counts: {
-    pdf: number;
-    image: number;
-    doc: number;
-    video: number;
-    other: number;
-  };
-  total_documents: number;
-  file_type_stats: {
-    pdf: number;
-    image: number;
-    doc: number;
-    video: number;
-    other: number;
-  };
-}
 
 // Fonction pour calculer le pourcentage à partir des chaînes formatées
 const calculatePercentage = (part: string, total: string): number => {
@@ -75,7 +46,7 @@ const calculatePercentage = (part: string, total: string): number => {
 };
 
 const StorageUsage = () => {
-  const { data, isLoading, error } = useQuery<StorageUsageResponse>({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["storageUsage"],
     queryFn: getStorageUsage,
   });
@@ -146,7 +117,7 @@ const StorageUsage = () => {
   );
   const docPercentage = calculatePercentage(storage_by_type?.doc, total_space);
   const videoPercentage = calculatePercentage(
-    storage_by_type?.video,
+    storage_by_type?.excel,
     total_space
   );
   const otherPercentage = calculatePercentage(
@@ -182,23 +153,23 @@ const StorageUsage = () => {
       name: "Images",
       key: "image",
       icon: imagePng,
-      color: "bg-green-500",
-      textColor: "text-green-600",
-      lightColor: "bg-green-100",
+      color: "bg-purple-500",
+      textColor: "text-purple-600",
+      lightColor: "bg-purple-100",
       percentage: imagePercentage,
       size: storage_by_type?.image,
       count: file_type_stats?.image,
     },
     {
-      name: "Vidéos",
-      key: "video",
-      icon: videoPng,
-      color: "bg-purple-500",
-      textColor: "text-purple-600",
-      lightColor: "bg-purple-100",
+      name: "Excel",
+      key: "excel",
+      icon: ExcelSvg,
+      color: "bg-green-500",
+      textColor: "text-green-600",
+      lightColor: "bg-green-100",
       percentage: videoPercentage,
-      size: storage_by_type?.video,
-      count: file_type_stats?.video,
+      size: storage_by_type?.excel,
+      count: file_type_stats?.excel,
     },
     {
       name: "Autres",

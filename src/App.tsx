@@ -11,6 +11,8 @@ import UploadDocument from "./pages/app/upload-document";
 import DocumentPermissionsPage from "./pages/app/document-permissions";
 import ProfilePage from "./pages/app/profile";
 import { withPermission } from "./hoc/with-permission";
+import AssignUserToCupboards from "./pages/app/assign-user-to-cupboards";
+import AssignUsersToCupboard from "./pages/app/assign-users-to-cupboard";
 
 const ProtectedUsersPage = withPermission(UsersPage, "can_view_users");
 const ProtectedUploadDocumentPage = withPermission(
@@ -46,7 +48,14 @@ const router = createBrowserRouter([
         path: "users",
         element: <ProtectedUsersPage />,
       },
-
+      {
+        path: "users/assign-to-cupboards/:user_id",
+        element: <AssignUserToCupboards />,
+      },
+      {
+        path: "cupboards/:cupboard_id/permissions",
+        element: <AssignUsersToCupboard />,
+      },
       {
         path: "upload-document",
         element: <ProtectedUploadDocumentPage />,

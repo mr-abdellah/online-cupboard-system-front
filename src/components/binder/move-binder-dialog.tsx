@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getCupboards } from "@/services/cupboard";
+import { getAllCupboards } from "@/services/cupboard";
 import { changeBinderCupboard } from "@/services/binder";
 import { FiFolder, FiLoader } from "react-icons/fi";
 import type { BinderResponse } from "@/services/binder";
@@ -42,7 +42,7 @@ export function MoveBinderDialog({
   // Récupérer la liste des armoires
   const { data: cupboards, isLoading: isLoadingCupboards } = useQuery({
     queryKey: ["cupboards"],
-    queryFn: () => getCupboards(),
+    queryFn: () => getAllCupboards(),
     enabled: open,
   });
 

@@ -42,20 +42,9 @@ const personalInfoSchema = z.object({
 // Schéma de validation pour le mot de passe
 const passwordSchema = z
   .object({
-    password: z
-      .string()
-      .min(8, {
-        message: "Le mot de passe doit contenir au moins 8 caractères",
-      })
-      .regex(/[A-Z]/, {
-        message: "Le mot de passe doit contenir au moins une majuscule",
-      })
-      .regex(/[a-z]/, {
-        message: "Le mot de passe doit contenir au moins une minuscule",
-      })
-      .regex(/[0-9]/, {
-        message: "Le mot de passe doit contenir au moins un chiffre",
-      }),
+    password: z.string().min(8, {
+      message: "Le mot de passe doit contenir au moins 8 caractères",
+    }),
     password_confirmation: z
       .string()
       .min(1, { message: "Veuillez confirmer votre mot de passe" }),

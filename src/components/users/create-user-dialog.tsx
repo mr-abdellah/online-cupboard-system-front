@@ -39,6 +39,7 @@ import { FiUpload } from "react-icons/fi";
 import { createUser, Permission } from "@/services/user";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { useNavigate } from "react-router";
 
 const permissionLabels: { label: string; value: Permission }[] = [
   { label: "Voir les armoires/classeurs", value: "can_view_documents" },
@@ -65,20 +66,9 @@ const createUserSchema = z
       .string()
       .min(1, { message: "L'email est requis" })
       .email({ message: "Format d'email invalide" }),
-    password: z
-      .string()
-      .min(8, {
-        message: "Le mot de passe doit contenir au moins 8 caractères",
-      })
-      .regex(/[A-Z]/, {
-        message: "Le mot de passe doit contenir au moins une majuscule",
-      })
-      .regex(/[a-z]/, {
-        message: "Le mot de passe doit contenir au moins une minuscule",
-      })
-      .regex(/[0-9]/, {
-        message: "Le mot de passe doit contenir au moins un chiffre",
-      }),
+    password: z.string().min(8, {
+      message: "Le mot de passe doit contenir au moins 8 caractères",
+    }),
     password_confirmation: z
       .string()
       .min(1, { message: "Veuillez confirmer le mot de passe" }),
@@ -104,6 +94,7 @@ export function CreateUserDialog({ open, setOpen }: CreateUserDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   // Formulaire pour la création d'utilisateur
   const form = useForm<CreateUserValues>({
@@ -142,7 +133,7 @@ export function CreateUserDialog({ open, setOpen }: CreateUserDialogProps) {
         avatar: avatarFile || undefined,
       };
 
-      await createUser(userData);
+      const res = await createUser(userData);
 
       // Rafraîchir la liste des utilisateurs
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -154,6 +145,7 @@ export function CreateUserDialog({ open, setOpen }: CreateUserDialogProps) {
       form.reset();
       setAvatarFile(null);
       setAvatarPreview(null);
+      navigate(`/users/assign-to-cupboards/${res.id}`);
     } catch (error) {
       toast.error("Erreur lors de la création de l'utilisateur");
     } finally {

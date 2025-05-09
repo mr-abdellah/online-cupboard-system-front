@@ -9,7 +9,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { FiLoader } from "react-icons/fi";
 import { debounce } from "lodash";
-import { CupboardResponse, getCupboards } from "@/services/cupboard";
+import { getAllCupboards } from "@/services/cupboard";
 import { createDocument, extractOcr } from "@/services/document";
 import {
   documentSchema,
@@ -54,36 +54,62 @@ export default function UploadDocumentPage() {
   const { setValue, handleSubmit, control, reset } = form;
 
   // Récupérer les armoires et classeurs
-  const { data: cupboards, isLoading: isLoadingCupboards } = useQuery<
-    CupboardResponse[]
-  >({
+  const { data: cupboards, isLoading: isLoadingCupboards } = useQuery({
     queryKey: ["cupboards"],
-    queryFn: () => getCupboards(),
+    queryFn: () => getAllCupboards(),
   });
 
   // Effet pour définir le binder_id si le paramètre d'URL est présent
   useEffect(() => {
-    if (binderIdParam) {
-      setValue("binder_id", binderIdParam);
+    if (cupboardIdParam && cupboardIdParam !== "null") {
+      setSelectedCupboardId(cupboardIdParam);
     }
-  }, [binderIdParam, setValue]);
 
-  // Effet pour trouver le cupboard_id correspondant au binder_id si nécessaire
-  useEffect(() => {
-    if (binderIdParam && !cupboardIdParam && cupboards) {
-      // Trouver l'armoire qui contient ce classeur
-      for (const cupboard of cupboards) {
-        // Vérifier si binders existe avant d'utiliser .some()
-        const binderExists = cupboard?.binders?.some(
-          (binder) => binder.id === binderIdParam
-        );
-        if (binderExists) {
-          setSelectedCupboardId(cupboard.id);
-          break;
+    if (binderIdParam) {
+      // Explicitly set the binder_id in the form
+      setValue("binder_id", binderIdParam);
+
+      // If we have a binder ID but no cupboard ID (or it's "null"),
+      // find the parent cupboard for this binder
+      if (!cupboardIdParam || cupboardIdParam === "null") {
+        if (cupboards) {
+          const parentCupboard = cupboards.find((cupboard) =>
+            cupboard.binders?.some((binder) => binder.id === binderIdParam)
+          );
+
+          if (parentCupboard) {
+            setSelectedCupboardId(parentCupboard.id);
+          }
         }
       }
     }
-  }, [binderIdParam, cupboardIdParam, cupboards]);
+  }, [binderIdParam, cupboardIdParam, setValue, cupboards]);
+
+  // Add a new useEffect that runs when the component mounts to ensure form values are set
+  useEffect(() => {
+    // This effect runs once on component mount to ensure form values are set from URL params
+    if (binderIdParam) {
+      // Force update the form value for binder_id
+      setValue("binder_id", binderIdParam);
+    }
+  }, []);
+
+  // Handle the case when cupboards data loads after component mounts
+  useEffect(() => {
+    if (
+      cupboards &&
+      binderIdParam &&
+      (!selectedCupboardId || selectedCupboardId === "null")
+    ) {
+      const parentCupboard = cupboards.find((cupboard) =>
+        cupboard.binders?.some((binder) => binder.id === binderIdParam)
+      );
+
+      if (parentCupboard) {
+        setSelectedCupboardId(parentCupboard.id);
+      }
+    }
+  }, [cupboards, binderIdParam, selectedCupboardId]);
 
   const extractOcrFromFile = useCallback(
     debounce(async (file: File | null) => {
@@ -204,6 +230,25 @@ export default function UploadDocumentPage() {
   const handleCupboardChange = (cupboardId: string) => {
     setSelectedCupboardId(cupboardId);
     setValue("binder_id", "");
+
+    // Update URL to reflect the selected cupboard
+    const newParams = new URLSearchParams(searchParams.toString());
+    newParams.set("cupboard_id", cupboardId);
+    newParams.delete("binder_id"); // Clear binder when changing cupboard
+    navigate(`/upload-document?${newParams.toString()}`, { replace: true });
+  };
+
+  // Gérer le changement de classeur
+  const handleBinderChange = (binderId: string) => {
+    setValue("binder_id", binderId);
+
+    // Update URL to reflect the selected binder
+    const newParams = new URLSearchParams(searchParams.toString());
+    newParams.set("binder_id", binderId);
+    if (selectedCupboardId) {
+      newParams.set("cupboard_id", selectedCupboardId);
+    }
+    navigate(`/upload-document?${newParams.toString()}`, { replace: true });
   };
 
   // Gérer la soumission du formulaire
@@ -280,6 +325,8 @@ export default function UploadDocumentPage() {
                 handleFileChange={handleFileChange}
                 setSelectedFile={setSelectedFile}
                 setFilePreview={setFilePreview}
+                handleBinderChange={handleBinderChange}
+                selectedBinderId={binderIdParam || ""}
               />
             </CardContent>
           </Card>

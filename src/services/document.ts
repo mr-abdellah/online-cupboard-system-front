@@ -69,14 +69,14 @@ export interface StorageUsageResponse {
     pdf: string;
     image: string;
     doc: string;
-    video: string;
+    excel: string;
     other: string;
   };
   file_counts: {
     pdf: number;
     image: number;
     doc: number;
-    video: number;
+    excel: number;
     other: number;
   };
   total_documents: number;
@@ -84,7 +84,7 @@ export interface StorageUsageResponse {
     pdf: number;
     image: number;
     doc: number;
-    video: number;
+    excel: number;
     other: number;
   };
 }

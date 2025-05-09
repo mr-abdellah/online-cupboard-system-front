@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,7 +8,6 @@ import {
   FiSearch,
   FiLoader,
   FiFile,
-  FiUser,
   FiCalendar,
   FiTag,
   FiSave,
@@ -29,6 +28,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -46,6 +46,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 // Fonction pour obtenir l'icône en fonction du type de fichier
 import documentSvg from "@/assets/document.svg";
@@ -84,31 +87,53 @@ const PERMISSION_TYPES = ["view", "edit", "delete", "download"];
 // Options pour le nombre d'éléments par page
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
+// Schéma de validation Zod pour le formulaire
+const permissionsFormSchema = z.object({
+  isPublic: z.boolean(),
+  userPermissions: z.record(z.string(), z.array(z.string())),
+  searchQuery: z.string().optional().default(""),
+  pageSize: z.number().min(1).optional().default(10),
+  currentPage: z.number().min(1).optional().default(1),
+});
+
+// Update the type definition to match the schema
+type PermissionsFormValues = {
+  isPublic: boolean;
+  userPermissions: Record<string, string[]>;
+  searchQuery?: string;
+  pageSize?: number;
+  currentPage?: number;
+};
 export default function DocumentPermissionsPage() {
   const { document_id } = useParams<{ document_id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // États pour la recherche et la pagination
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  // Initialiser React Hook Form avec Zod
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { isDirty },
+    reset,
+  } = useForm<PermissionsFormValues>({
+    resolver: zodResolver(permissionsFormSchema),
+    defaultValues: {
+      isPublic: false,
+      userPermissions: {},
+      searchQuery: "",
+      pageSize: 10,
+      currentPage: 1,
+    },
+  });
 
-  // État pour stocker les utilisateurs avec leurs permissions modifiées
-  const [modifiedUsers, setModifiedUsers] = useState<Map<string, string[]>>(
-    new Map()
-  );
-
-  // Effet pour débouncer la recherche
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-      setCurrentPage(1); // Réinitialiser à la première page lors d'une nouvelle recherche
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  // Observer les valeurs du formulaire
+  const isPublic = watch("isPublic");
+  const searchQuery = watch("searchQuery");
+  const currentPage = watch("currentPage");
+  const pageSize = watch("pageSize");
+  const userPermissions = watch("userPermissions");
 
   // Récupérer les informations du document avec les utilisateurs et leurs permissions
   const {
@@ -123,14 +148,38 @@ export default function DocumentPermissionsPage() {
     refetchOnMount: false,
   });
 
+  // Move the onSuccess logic to useEffect
+  useEffect(() => {
+    if (documentData) {
+      // Initialize isPublic with the document value
+      setValue("isPublic", documentData.document?.is_public || false);
+
+      // Initialize user permissions
+      const initialPermissions: Record<string, string[]> = {};
+      documentData.users.forEach((user) => {
+        initialPermissions[user.id] = user.permissions;
+      });
+      setValue("userPermissions", initialPermissions);
+
+      // Reset the "dirty" state after setting initial values
+      reset({
+        isPublic: documentData.document?.is_public || false,
+        userPermissions: initialPermissions,
+        searchQuery: "",
+        pageSize: 10,
+        currentPage: 1,
+      });
+    }
+  }, [documentData, setValue, reset]);
+
   // Récupérer la liste de tous les utilisateurs
   const {
     data: usersData,
     isLoading: isLoadingUsers,
     error: usersError,
   } = useQuery({
-    queryKey: ["users", debouncedSearchQuery, currentPage, pageSize],
-    queryFn: () => getAllUsers(currentPage, pageSize, debouncedSearchQuery),
+    queryKey: ["users", searchQuery, currentPage, pageSize],
+    queryFn: () => getAllUsers(currentPage, pageSize, searchQuery),
     enabled: !!document_id,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -138,22 +187,22 @@ export default function DocumentPermissionsPage() {
 
   // Mutation pour mettre à jour les permissions
   const updatePermissionsMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (data: PermissionsFormValues) => {
       const users: UserPermission[] = [];
-      modifiedUsers.forEach((permissions, userId) => {
+      Object.entries(data.userPermissions).forEach(([userId, permissions]) => {
         users.push({
           user_id: userId,
           permissions,
         });
       });
-      return updateDocumentPermissions(document_id || "", users);
+      return updateDocumentPermissions(document_id || "", users, data.isPublic);
     },
     onSuccess: () => {
       toast.success("Permissions mises à jour avec succès");
       queryClient.invalidateQueries({
         queryKey: ["document-permissions", document_id],
       });
-      setModifiedUsers(new Map()); // Réinitialiser les modifications après la sauvegarde
+      navigate("/dashboard");
     },
     onError: () => {
       toast.error("Erreur lors de la mise à jour des permissions");
@@ -162,9 +211,9 @@ export default function DocumentPermissionsPage() {
 
   // Vérifier si un utilisateur a une permission spécifique
   const hasPermission = (userId: string, permissionType: string): boolean => {
-    // Vérifier d'abord dans les modifications
-    if (modifiedUsers.has(userId)) {
-      return modifiedUsers.get(userId)?.includes(permissionType) || false;
+    // Vérifier dans les permissions du formulaire
+    if (userPermissions[userId]) {
+      return userPermissions[userId].includes(permissionType);
     }
 
     // Sinon vérifier dans les permissions originales
@@ -178,53 +227,46 @@ export default function DocumentPermissionsPage() {
     permissionType: string,
     checked: boolean
   ) => {
-    setModifiedUsers((prev) => {
-      const newMap = new Map(prev);
+    const currentPermissions = userPermissions[userId] || [];
+    let updatedPermissions: string[];
 
-      // Obtenir les permissions actuelles de l'utilisateur
-      const user = documentData?.users.find((u) => u.id === userId);
-      let currentPermissions = user?.permissions || [];
+    if (checked) {
+      updatedPermissions = [...currentPermissions, permissionType];
+    } else {
+      updatedPermissions = currentPermissions.filter(
+        (p) => p !== permissionType
+      );
+    }
 
-      // Si l'utilisateur a déjà des modifications, utiliser celles-ci
-      if (newMap.has(userId)) {
-        currentPermissions = newMap.get(userId) || [];
-      }
-
-      // Mettre à jour les permissions
-      let updatedPermissions: string[];
-      if (checked) {
-        updatedPermissions = [...currentPermissions, permissionType];
-      } else {
-        updatedPermissions = currentPermissions.filter(
-          (p) => p !== permissionType
-        );
-      }
-
-      // Enregistrer les modifications
-      newMap.set(userId, updatedPermissions);
-      return newMap;
+    setValue(`userPermissions.${userId}`, updatedPermissions, {
+      shouldDirty: true,
     });
   };
 
   // Gérer la soumission du formulaire
-  const handleSubmit = () => {
-    if (modifiedUsers.size > 0) {
-      updatePermissionsMutation.mutate();
-    } else {
-      toast.info("Aucune modification à enregistrer");
-    }
-  };
+  const onSubmit = handleSubmit((formData) => {
+    // Create a properly typed object from the form data
+    const submissionData: PermissionsFormValues = {
+      isPublic: formData.isPublic,
+      userPermissions: formData.userPermissions,
+      searchQuery: formData.searchQuery || "",
+      pageSize: formData.pageSize || 10,
+      currentPage: formData.currentPage || 1,
+    };
+
+    updatePermissionsMutation.mutate(submissionData);
+  });
 
   // Gérer le changement de page
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    setValue("currentPage", page);
   };
 
   // Gérer le changement du nombre d'éléments par page
   const handlePageSizeChange = (value: string) => {
     const newSize = Number.parseInt(value, 10);
-    setPageSize(newSize);
-    setCurrentPage(1); // Réinitialiser à la première page lors du changement de taille
+    setValue("pageSize", newSize);
+    setValue("currentPage", 1); // Réinitialiser à la première page lors du changement de taille
   };
 
   // Afficher un état de chargement
@@ -243,7 +285,7 @@ export default function DocumentPermissionsPage() {
         <div className="text-red-500 mb-2">
           Une erreur est survenue lors du chargement du document.
         </div>
-        <Button variant="outline" onClick={() => navigate(-1)}>
+        <Button variant="outline" onClick={() => navigate("/dashboard")}>
           Retour
         </Button>
       </div>
@@ -269,7 +311,7 @@ export default function DocumentPermissionsPage() {
         <div className="text-red-500 mb-2">
           Une erreur est survenue lors du chargement des utilisateurs.
         </div>
-        <Button variant="outline" onClick={() => navigate(-1)}>
+        <Button variant="outline" onClick={() => navigate("/dashboard")}>
           Retour
         </Button>
       </div>
@@ -289,10 +331,15 @@ export default function DocumentPermissionsPage() {
     : displayUsers;
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <form onSubmit={onSubmit} className="container mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center">
-          <Button variant="ghost" onClick={() => navigate(-1)} className="mr-2">
+        <div className="flex flex-col items-start md:flex-row md:items-center">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => navigate("/dashboard")}
+            className="mr-2"
+          >
             <FiArrowLeft className="mr-2" />
             Retour
           </Button>
@@ -302,10 +349,8 @@ export default function DocumentPermissionsPage() {
         </div>
 
         <Button
-          onClick={handleSubmit}
-          disabled={
-            updatePermissionsMutation.isPending || modifiedUsers.size === 0
-          }
+          type="submit"
+          disabled={updatePermissionsMutation.isPending || !isDirty}
           className="bg-[#3b5de7] hover:bg-[#2d4ccc]"
         >
           {updatePermissionsMutation.isPending ? (
@@ -346,10 +391,7 @@ export default function DocumentPermissionsPage() {
                   <FiFile className="mr-2" />
                   <span>Type: {document?.type?.toUpperCase()}</span>
                 </div>
-                <div className="flex items-center text-sm text-gray-600">
-                  <FiUser className="mr-2" />
-                  <span>Propriétaire: Admin</span>
-                </div>
+
                 <div className="flex items-center text-sm text-gray-600">
                   <FiCalendar className="mr-2" />
                   <span>
@@ -391,6 +433,42 @@ export default function DocumentPermissionsPage() {
         </CardContent>
       </Card>
 
+      {/* Option document public */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Visibilité du Document</CardTitle>
+          <CardDescription>
+            Définir si ce document est accessible publiquement
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-4">
+            <Controller
+              name="isPublic"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  id="public-document"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
+            <label
+              htmlFor="public-document"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Document public
+            </label>
+            <div className="text-sm text-gray-500 ml-2">
+              {isPublic
+                ? "Tout le monde peut accéder à ce document"
+                : "Seuls les utilisateurs avec des permissions peuvent accéder à ce document"}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Tableau des utilisateurs et permissions */}
       <Card>
         <CardHeader>
@@ -404,32 +482,65 @@ export default function DocumentPermissionsPage() {
             <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
               <div className="relative w-full md:w-64">
                 <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Rechercher un utilisateur..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                <Controller
+                  name="searchQuery"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      placeholder="Rechercher un utilisateur..."
+                      {...field}
+                      className="pl-10"
+                    />
+                  )}
                 />
               </div>
-              <Select
-                value={pageSize.toString()}
-                onValueChange={handlePageSizeChange}
-              >
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Utilisateurs par page" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size} value={size.toString()}>
-                      {size} utilisateurs par page
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Controller
+                name="pageSize"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field?.value ? field?.value.toString() : "10"}
+                    onValueChange={(value) => handlePageSizeChange(value)}
+                  >
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="Utilisateurs par page" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((size) => (
+                        <SelectItem key={size} value={size.toString()}>
+                          {size} utilisateurs par page
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
           </div>
         </CardHeader>
         <CardContent>
+          {isPublic && (
+            <div className="bg-blue-50 p-4 rounded-md mb-4 text-blue-700 border border-blue-100">
+              <div className="flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-2"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span>
+                  Le document est défini comme public. Les permissions
+                  individuelles sont désactivées.
+                </span>
+              </div>
+            </div>
+          )}
           <div className="border rounded-md">
             <Table>
               <TableHeader>
@@ -490,6 +601,7 @@ export default function DocumentPermissionsPage() {
                                 checked as boolean
                               )
                             }
+                            disabled={isPublic}
                           />
                         </TableCell>
                       ))}
@@ -509,9 +621,14 @@ export default function DocumentPermissionsPage() {
               </div>
               <div className="flex items-center space-x-2">
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
+                  onClick={() => {
+                    if (currentPage) {
+                      handlePageChange(currentPage - 1);
+                    }
+                  }}
                   disabled={usersData.current_page === 1}
                 >
                   Précédent
@@ -535,6 +652,7 @@ export default function DocumentPermissionsPage() {
                     return (
                       <Button
                         key={pageNumber}
+                        type="button"
                         variant={
                           pageNumber === usersData.current_page
                             ? "default"
@@ -554,9 +672,14 @@ export default function DocumentPermissionsPage() {
                   }
                 )}
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
+                  onClick={() => {
+                    if (currentPage) {
+                      handlePageChange(currentPage + 1);
+                    }
+                  }}
                   disabled={usersData.current_page === usersData.last_page}
                 >
                   Suivant
@@ -566,6 +689,6 @@ export default function DocumentPermissionsPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </form>
   );
 }

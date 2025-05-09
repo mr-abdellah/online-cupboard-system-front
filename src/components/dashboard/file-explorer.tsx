@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from "react-router";
 import FileTree from "./file-tree";
 import BinderFiles from "./binder-files";
 import BinderImage from "@/assets/binder.png";
+import { useQuery } from "@tanstack/react-query";
+import { getCupboards } from "@/services/cupboard";
 
 const FileExplorer = () => {
   const navigate = useNavigate();
@@ -12,12 +14,49 @@ const FileExplorer = () => {
   const cupboardId = searchParams.get("cupboard_id");
   const binderId = searchParams.get("binder_id");
 
+  // Fetch cupboards data to find parent relationships
+  const { data: cupboards } = useQuery({
+    queryKey: ["cupboards"],
+    queryFn: () => getCupboards(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Function to find the parent cupboard for a binder
+  const findParentCupboardForBinder = (binderId: string) => {
+    if (!cupboards) return null;
+
+    return cupboards.find(
+      (cupboard) =>
+        cupboard.binders &&
+        cupboard.binders.some((binder) => binder.id === binderId)
+    );
+  };
+
   // Gestion de la sélection d'un élément
   const handleSelect = (id: string, type: "cupboard" | "binder") => {
     if (type === "cupboard") {
       navigate(`/dashboard?cupboard_id=${id}`);
     } else {
-      navigate(`/dashboard?cupboard_id=${cupboardId}&binder_id=${id}`);
+      // For binders, ensure we have the correct parent cupboard ID
+      const currentCupboardId =
+        cupboardId && cupboardId !== "null" ? cupboardId : null;
+
+      if (currentCupboardId) {
+        // If we already have a valid cupboardId, use it
+        navigate(`/dashboard?cupboard_id=${currentCupboardId}&binder_id=${id}`);
+      } else {
+        // Find the parent cupboard for this binder
+        const parentCupboard = findParentCupboardForBinder(id);
+
+        if (parentCupboard) {
+          navigate(
+            `/dashboard?cupboard_id=${parentCupboard.id}&binder_id=${id}`
+          );
+        } else {
+          // Fallback if we can't find the parent (should be rare)
+          navigate(`/dashboard?binder_id=${id}`);
+        }
+      }
     }
   };
 
@@ -44,7 +83,7 @@ const FileExplorer = () => {
         ) : (
           <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-100 flex flex-col items-center justify-center h-full">
             <img
-              src={BinderImage}
+              src={BinderImage || "/placeholder.svg"}
               alt="Sélectionnez un classeur"
               className="w-20 h-20 text-gray-300 mb-4"
             />

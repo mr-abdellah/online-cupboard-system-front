@@ -96,8 +96,13 @@ const BinderFiles = () => {
 
   const handleUploadFile = () => {
     if (!canUploadDocuments) return;
+
+    // Make sure we have valid IDs before navigating
+    const validBinderId = binderId || "";
+    const validCupboardId = cupboardId || "";
+
     navigate(
-      `/upload-document?cupboard_id=${cupboardId}&binder_id=${binderId}`
+      `/upload-document?cupboard_id=${validCupboardId}&binder_id=${validBinderId}`
     );
   };
 
@@ -298,9 +303,8 @@ const BinderFiles = () => {
 
           {/* Liste des fichiers */}
           {documents.map((doc) => {
-            const canView = doc?.permissions?.some(
-              (permission) => permission === "view"
-            );
+            const canView =
+              doc?.is_public || doc?.permissions?.includes("view");
 
             const canEdit = doc?.permissions?.some(
               (permission) => permission === "edit"
