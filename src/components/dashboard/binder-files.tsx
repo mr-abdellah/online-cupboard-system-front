@@ -9,6 +9,7 @@ import {
   FiLock,
   FiEdit,
   FiFolder,
+  FiCopy,
 } from "react-icons/fi";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -34,6 +35,7 @@ import { DeleteDocumentDialog } from "../document/delete-document-dialog";
 import { UpdateDocumentDialog } from "../document/update-document-dialog";
 import { DocumentPreviewSheet } from "../document/document-preview-sheet";
 import { MoveDocumentDialog } from "../document/move-document-dialog";
+import { CopyDocumentDialog } from "../document/copy-document-dialog";
 import { usePermission } from "@/hooks/usePermission";
 
 // Supprimer les props et utiliser useSearchParams à la place
@@ -62,6 +64,7 @@ const BinderFiles = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] =
     useState<DocumentResponse | null>(null);
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
@@ -123,6 +126,11 @@ const BinderFiles = () => {
   const handleMoveDocument = (document: any) => {
     setSelectedDocument(document);
     setMoveDialogOpen(true);
+  };
+
+  const handleCopyDocument = (document: any) => {
+    setSelectedDocument(document);
+    setCopyDialogOpen(true);
   };
 
   const handlePreviewDocument = (document: any) => {
@@ -436,6 +444,16 @@ const BinderFiles = () => {
                             <FiFolder className="mr-2" size={14} />
                             <span>Déplacer</span>
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="flex items-center cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyDocument(doc);
+                            }}
+                          >
+                            <FiCopy className="mr-2" size={14} />
+                            <span>Copier</span>
+                          </DropdownMenuItem>
                         </>
                       )}
 
@@ -483,6 +501,13 @@ const BinderFiles = () => {
         currentBinderId={binderId}
         open={moveDialogOpen}
         onOpenChange={setMoveDialogOpen}
+      />
+
+      <CopyDocumentDialog
+        documentId={selectedDocument?.id || null}
+        documentTitle={selectedDocument?.title || null}
+        open={copyDialogOpen}
+        onOpenChange={setCopyDialogOpen}
       />
 
       <DocumentPreviewSheet

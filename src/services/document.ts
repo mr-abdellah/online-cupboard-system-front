@@ -89,6 +89,11 @@ export interface StorageUsageResponse {
   };
 }
 
+export interface CopyDocumentResponse {
+  message: string;
+  documents: DocumentResponse[];
+}
+
 export async function getDocuments(): Promise<DocumentResponse[]> {
   try {
     const response = await api.get("/documents");
@@ -208,6 +213,16 @@ export async function changeDocumentBinder(
 ): Promise<DocumentResponse> {
   const response = await api.put(`/documents/${documentId}/change-binder`, {
     binder_id: binderId,
+  });
+  return response.data;
+}
+
+export async function copyDocumentToBinders(
+  documentId: string,
+  binderIds: string[]
+): Promise<CopyDocumentResponse> {
+  const response = await api.post(`/documents/${documentId}/copy-to-binders`, {
+    binder_ids: binderIds,
   });
   return response.data;
 }
