@@ -66,136 +66,20 @@ export default function LoginPage() {
 
         {/* Logo en haut à gauche */}
         <div className="absolute top-8 left-8 text-white">
-          <svg
-            width="32"
-            height="32"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <rect
-              x="3"
-              y="3"
-              width="18"
-              height="18"
-              rx="2"
-              stroke="currentColor"
-              strokeWidth="2"
-              fill="none"
-            />
-          </svg>
+          <img src="/logo.png" className="size-40 rounded-full" />
         </div>
 
         {/* Contenu principal */}
-        <div className="relative z-10 flex flex-col justify-center px-12 text-white">
-          <h2 className="text-3xl font-bold mb-4">Media Docs</h2>
+        <div className="relative z-10 flex flex-col justify-center px-12 text-white pt-20">
+          <h2 className="text-3xl font-bold mb-4">
+            Plateforme GED - Gestion Electronique de Documents
+          </h2>
           <p className="text-white/80 mb-8">
-            Consultez vos analyses et gérez vos données à distance, depuis
-            n'importe où !
+            République Algérienne Démocratique et Populaire وزارة السكن والعمران
+            والمدينة Ministère de l'Habitat, de l'Urbanisme et de la Ville ديوان
+            الترقية والتسيير العقاري لولاية تيزي وزو Office De La Promotion Et
+            De La Gestion Immobilière De La Wilaya De Tizi-ouzou
           </p>
-
-          {/* Indicateurs de page */}
-          <div className="flex space-x-2 mt-8">
-            <div className="w-8 h-1 bg-white rounded-full"></div>
-            <div className="w-2 h-1 bg-white/40 rounded-full"></div>
-            <div className="w-2 h-1 bg-white/40 rounded-full"></div>
-          </div>
-
-          {/* Interface de l'application (simplifiée) */}
-          <div className="mt-16 bg-[#2d4ccc] rounded-lg shadow-lg p-4 max-w-md">
-            <div className="flex items-center border-b border-white/10 pb-3 mb-4">
-              <svg
-                className="w-5 h-5 mr-2 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              <span className="text-white font-medium">Example File</span>
-            </div>
-
-            {/* Barre d'outils simplifiée */}
-            <div className="flex space-x-2 mb-4 border-b border-white/10 pb-3">
-              <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center">
-                <svg
-                  className="w-4 h-4 text-white/70"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center">
-                <svg
-                  className="w-4 h-4 text-white/70"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-              </div>
-              <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center">
-                <svg
-                  className="w-4 h-4 text-white/70"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center">
-                <svg
-                  className="w-4 h-4 text-white/70"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-            </div>
-
-            {/* Tableau simplifié */}
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((row) => (
-                <div key={row} className="flex">
-                  <div className="w-8 text-white/60 text-sm flex items-center justify-center">
-                    {row}
-                  </div>
-                  <div className="flex-1 h-6 bg-white/10 rounded"></div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 

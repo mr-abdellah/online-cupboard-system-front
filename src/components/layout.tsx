@@ -108,9 +108,8 @@ export default function Layout() {
             {/* Logo */}
             <div className="flex items-center">
               <Link to="/dashboard" className="flex items-center">
-                <div className="text-blue-600 font-bold text-xl mr-2">
-                  Media-Docs
-                </div>
+                <img src="/logo.png" alt="" className="size-10" />
+                OPG Tizi-ouzou
               </Link>
             </div>
 

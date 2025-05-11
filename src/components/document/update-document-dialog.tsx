@@ -136,7 +136,7 @@ export function UpdateDocumentDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="tags">Tags</Label>
+            <Label htmlFor="tags">Mot-clés</Label>
             <Input
               id="tags"
               value={tagInput}

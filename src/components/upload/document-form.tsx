@@ -177,7 +177,7 @@ export default function DocumentForm({
 
         <div>
           <Label htmlFor="tags" className="text-base">
-            Tags
+            Mot-clés
           </Label>
           <div className="mt-1">
             <Input

@@ -285,7 +285,7 @@ const BinderFiles = () => {
             </div>
 
             <div className="col-span-3 flex items-center">
-              <span>Tags</span>
+              <span>Mot-clés</span>
               <button className="ml-1">
                 <svg
                   width="12"
