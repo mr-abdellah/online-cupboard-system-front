@@ -48,7 +48,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex bg-slate-100">
-      {/* Section gauche avec fond bleu */}
       <div className="hidden md:flex md:w-1/2 bg-[#3b5de7] relative overflow-hidden">
         <div
           className="absolute inset-0"
@@ -58,33 +57,45 @@ export default function LoginPage() {
           }}
         ></div>
 
-        {/* Formes géométriques en arrière-plan */}
         <div className="absolute inset-0">
           <div className="absolute top-[20%] left-[10%] w-[80%] h-[60%] bg-[#4e6ef2] opacity-30 transform rotate-12"></div>
           <div className="absolute top-[30%] left-[20%] w-[60%] h-[40%] bg-[#6a84f3] opacity-20 transform -rotate-6"></div>
         </div>
 
-        {/* Logo en haut à gauche */}
-        <div className="absolute top-8 left-8 text-white">
-          <img src="/logo.png" className="size-40 rounded-full" />
-        </div>
+        <div className="relative z-10 flex flex-col px-12 pt-10 text-white w-full max-h-[50vh] h-full justify-between mb-auto">
+          <div className="flex items-center gap-6">
+            <img src="/logo.png" className="size-28 rounded-full" />
+            <div className="text-sm leading-relaxed pt-2">
+              <p>République Algérienne Démocratique et Populaire</p>
+              <p>Ministère de l'Habitat, de l'Urbanisme et de la Ville</p>
+              <p>
+                Office De La Promotion Et De La Gestion Immobilière De La Wilaya
+                De Tizi-ouzou
+              </p>
+            </div>
+          </div>
 
-        {/* Contenu principal */}
-        <div className="relative z-10 flex flex-col justify-center px-12 text-white pt-20">
-          <h2 className="text-3xl font-bold mb-4">
-            Plateforme GED - Gestion Electronique de Documents
-          </h2>
-          <p className="text-white/80 mb-8">
-            République Algérienne Démocratique et Populaire وزارة السكن والعمران
-            والمدينة Ministère de l'Habitat, de l'Urbanisme et de la Ville ديوان
-            الترقية والتسيير العقاري لولاية تيزي وزو Office De La Promotion Et
-            De La Gestion Immobilière De La Wilaya De Tizi-ouzou
-          </p>
+          <div className="mt-10">
+            <h2 className="text-6xl font-bold mb-1">Plateforme GED</h2>
+            <p className="text-white/80 text-2xl">
+              Gestion Electronique de Documents
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Section droite avec formulaire */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-8">
+      <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-8">
+        <div className="md:hidden flex flex-col justify-center items-center gap-6 mb-20">
+          <img src="/logo.png" className="size-28 rounded-full" />
+          <div className="text-sm leading-relaxed pt-2 text-center md:text-left">
+            <p>République Algérienne Démocratique et Populaire</p>
+            <p>Ministère de l'Habitat, de l'Urbanisme et de la Ville</p>
+            <p>
+              Office De La Promotion Et De La Gestion Immobilière De La Wilaya
+              De Tizi-ouzou
+            </p>
+          </div>
+        </div>
         <div className="w-full max-w-md">
           <h1 className="text-2xl font-semibold text-gray-800 mb-8">
             Connexion
@@ -118,12 +129,6 @@ export default function LoginPage() {
                 >
                   Mot de passe
                 </label>
-                {/* <Link
-                  to="/auth/reset-password"
-                  className="text-sm text-[#3b5de7] hover:underline"
-                >
-                  Réinitialiser le mot de passe
-                </Link> */}
               </div>
               <input
                 id="password"
