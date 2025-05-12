@@ -14,9 +14,6 @@ const ACCEPTED_FILE_TYPES = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ];
 
-// Taille maximale du fichier (10 Mo)
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
 export const documentSchema = z.object({
   title: z
     .string()
@@ -26,10 +23,6 @@ export const documentSchema = z.object({
   binder_id: z.string().uuid("ID de classeur invalide"),
   file: z
     .instanceof(File)
-    .refine(
-      (file) => file.size <= MAX_FILE_SIZE,
-      "Le fichier ne doit pas dépasser 10 Mo"
-    )
     .refine(
       (file) => ACCEPTED_FILE_TYPES.includes(file.type),
       "Type de fichier non pris en charge. Utilisez JPG, PNG, PDF, DOC, DOCX, XLS, XLSX, PPT ou PPTX"
