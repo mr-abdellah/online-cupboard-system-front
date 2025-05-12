@@ -57,6 +57,11 @@ import { useNavigate } from "react-router";
 interface FileTreeProps {
   selectedItem: { id: string; type: "cupboard" | "binder" } | null;
   onSelect: (id: string, type: "cupboard" | "binder") => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  typeFilter: string;
+  onFilterChange: (fileType: string) => void;
+  onClearFilters: () => void;
 }
 
 // Document types for filtering
@@ -69,7 +74,15 @@ const documentTypes = [
   { value: "ppt,pptx", label: "Présentations PowerPoint" },
 ];
 
-const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
+const FileTree = ({
+  selectedItem,
+  onSelect,
+  searchQuery,
+  onSearchChange,
+  typeFilter,
+  onFilterChange,
+  onClearFilters,
+}: FileTreeProps) => {
   const [expandedCupboards, setExpandedCupboards] = useState<
     Record<string, boolean>
   >({});
@@ -81,45 +94,34 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
   const { canEditDocuments, canDeleteDocument, canUploadDocuments } =
     usePermission();
 
-  // Search and filter states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  // Local state for input handling
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
   const manuallyCollapsed = useRef<Record<string, boolean>>({});
-
-  // États pour les dialogs
-  const [createCupboardOpen, setCreateCupboardOpen] = useState(false);
-  const [renameCupboardOpen, setRenameCupboardOpen] = useState(false);
-  const [deleteCupboardOpen, setDeleteCupboardOpen] = useState(false);
-  const [createBinderOpen, setCreateBinderOpen] = useState(false);
-  const [renameBinderOpen, setRenameBinderOpen] = useState(false);
-  const [deleteBinderOpen, setDeleteBinderOpen] = useState(false);
-  const [moveBinderOpen, setMoveBinderOpen] = useState(false);
-
-  // États pour les éléments sélectionnés pour les opérations
-  const [selectedCupboardForAction, setSelectedCupboardForAction] =
-    useState<CupboardResponse | null>(null);
-  const [selectedBinderForAction, setSelectedBinderForAction] =
-    useState<BinderResponse | null>(null);
 
   // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
+      if (localSearchQuery !== searchQuery) {
+        onSearchChange(localSearchQuery);
+      }
     }, 300);
 
     return () => clearTimeout(timer);
+  }, [localSearchQuery, onSearchChange, searchQuery]);
+
+  // Sync local state with props
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
   }, [searchQuery]);
 
   // Updated useQuery with search and filter parameters
   const { data, isLoading, error } = useQuery({
-    queryKey: ["cupboards", debouncedSearchQuery, typeFilter],
-    queryFn: () => getCupboards(debouncedSearchQuery, typeFilter),
+    queryKey: ["cupboards", searchQuery, typeFilter],
+    queryFn: () => getCupboards(searchQuery, typeFilter),
     staleTime: 5 * 60 * 1000,
   });
 
   // Memoize sorted cupboards to avoid unnecessary re-sorting
-  // Replace the direct sorting with useMemo
   const sortedCupboards = useMemo(() => {
     return data ? [...data].sort((a, b) => a.order - b.order) : [];
   }, [data]);
@@ -149,19 +151,13 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
     (value: string) => {
       if (typeFilter === value) {
         // If the same filter is clicked again, clear it
-        setTypeFilter("");
+        onFilterChange("");
       } else {
-        setTypeFilter(value);
+        onFilterChange(value);
       }
     },
-    [typeFilter]
+    [typeFilter, onFilterChange]
   );
-
-  // Clear all filters
-  const clearFilters = useCallback(() => {
-    setSearchQuery("");
-    setTypeFilter("");
-  }, []);
 
   // Fonctions pour ouvrir les dialogs
   const handleCreateCupboard = useCallback(() => {
@@ -225,6 +221,21 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
     [canEditDocuments]
   );
 
+  // États pour les dialogs
+  const [createCupboardOpen, setCreateCupboardOpen] = useState(false);
+  const [renameCupboardOpen, setRenameCupboardOpen] = useState(false);
+  const [deleteCupboardOpen, setDeleteCupboardOpen] = useState(false);
+  const [createBinderOpen, setCreateBinderOpen] = useState(false);
+  const [renameBinderOpen, setRenameBinderOpen] = useState(false);
+  const [deleteBinderOpen, setDeleteBinderOpen] = useState(false);
+  const [moveBinderOpen, setMoveBinderOpen] = useState(false);
+
+  // États pour les éléments sélectionnés pour les opérations
+  const [selectedCupboardForAction, setSelectedCupboardForAction] =
+    useState<CupboardResponse | null>(null);
+  const [selectedBinderForAction, setSelectedBinderForAction] =
+    useState<BinderResponse | null>(null);
+
   // Effet pour auto-expand lorsqu'un classeur est sélectionné via l'URL
   useEffect(() => {
     if (selectedItem?.type === "binder" && data) {
@@ -249,7 +260,7 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
 
   useEffect(() => {
     // Only expand cupboards when search/filter is initially applied
-    const hasFilter = Boolean(debouncedSearchQuery) || Boolean(typeFilter);
+    const hasFilter = Boolean(searchQuery) || Boolean(typeFilter);
 
     if (hasFilter && !hadFilterBefore.current && sortedCupboards?.length) {
       const newExpanded = { ...expandedCupboards };
@@ -265,7 +276,7 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
     hadFilterBefore.current = hasFilter;
     // We intentionally only want this to run when the search/filter changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchQuery, typeFilter]);
+  }, [searchQuery, typeFilter]);
 
   // État de chargement
   if (isLoading) {
@@ -323,7 +334,7 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
               </span>
             )}
           </h3>
-          {canUploadDocuments && (
+          {canEditDocuments && (
             <button
               className="text-[#3b5de7] hover:text-[#2d4ccc] p-1 rounded-md hover:bg-blue-50 transition-colors"
               onClick={handleCreateCupboard}
@@ -341,8 +352,8 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
               <Input
                 type="text"
                 placeholder="Rechercher..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={localSearchQuery}
+                onChange={(e) => setLocalSearchQuery(e.target.value)}
                 className="pl-9 pr-4 py-2 w-full"
               />
             </div>
@@ -371,7 +382,7 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                 ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={clearFilters}
+                  onClick={onClearFilters}
                   className="justify-center text-[#3b5de7]"
                 >
                   Réinitialiser les filtres
@@ -381,13 +392,13 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
           </div>
 
           {/* Active filters */}
-          {(debouncedSearchQuery || typeFilter) && (
+          {(searchQuery || typeFilter) && (
             <div className="flex flex-wrap gap-2">
-              {debouncedSearchQuery && (
+              {searchQuery && (
                 <Badge variant="secondary" className="flex items-center gap-1">
-                  Recherche: {debouncedSearchQuery}
+                  Recherche: {searchQuery}
                   <button
-                    onClick={() => setSearchQuery("")}
+                    onClick={() => onSearchChange("")}
                     className="ml-1 hover:text-gray-700"
                   >
                     <X size={14} />
@@ -400,7 +411,7 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                   {documentTypes.find((t) => t.value === typeFilter)?.label ||
                     typeFilter}
                   <button
-                    onClick={() => setTypeFilter("")}
+                    onClick={() => onFilterChange("")}
                     className="ml-1 hover:text-gray-700"
                   >
                     <X size={14} />
@@ -408,7 +419,7 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                 </Badge>
               )}
               <button
-                onClick={clearFilters}
+                onClick={onClearFilters}
                 className="text-xs text-gray-500 hover:text-gray-700 underline"
               >
                 Effacer tout
@@ -744,12 +755,12 @@ const FileTree = ({ selectedItem, onSelect }: FileTreeProps) => {
                 alt="Dossier"
                 className="mx-auto mb-2 w-8 h-8 opacity-40"
               />
-              {debouncedSearchQuery || typeFilter ? (
+              {searchQuery || typeFilter ? (
                 <>
                   <p className="text-sm">Aucun résultat trouvé</p>
                   <button
                     className="mt-2 text-[#3b5de7] text-sm hover:underline"
-                    onClick={clearFilters}
+                    onClick={onClearFilters}
                   >
                     Effacer les filtres
                   </button>

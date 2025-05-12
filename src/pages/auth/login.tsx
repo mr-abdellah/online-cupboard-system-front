@@ -6,6 +6,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { login } from "@/services/auth";
 import { useNavigate } from "react-router";
+import { getToken } from "@/utils/token";
+import { useState } from "react";
+import { AlertCircle } from "lucide-react";
 
 // Schéma de validation
 const loginSchema = z.object({
@@ -18,13 +21,23 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  const token = getToken();
+  if (token) {
+    navigate("/dashboard");
+  }
+
   const { mutate, isPending } = useMutation({
     mutationFn: login,
     onSuccess: () => {
       navigate("/dashboard");
     },
     onError: (error) => {
-      // Handle login error
+      // Set the error message to display to the user
+      setLoginError(
+        "Identifiants incorrects. Veuillez vérifier votre email et mot de passe."
+      );
       console.error("Login error:", error);
     },
   });
@@ -43,6 +56,8 @@ export default function LoginPage() {
   });
 
   const onSubmit = (data: LoginFormValues) => {
+    // Clear any previous error messages when attempting a new login
+    setLoginError(null);
     mutate(data);
   };
 
@@ -64,7 +79,7 @@ export default function LoginPage() {
 
         <div className="relative z-10 flex flex-col px-12 pt-10 text-white w-full max-h-[50vh] h-full justify-between mb-auto">
           <div className="flex items-center gap-6">
-            <img src="/logo.png" className="size-28 rounded-full" />
+            <img src="/logo.png" className="size-28 rounded-full" alt="Logo" />
             <div className="text-sm leading-relaxed pt-2">
               <p>République Algérienne Démocratique et Populaire</p>
               <p>Ministère de l'Habitat, de l'Urbanisme et de la Ville</p>
@@ -86,7 +101,7 @@ export default function LoginPage() {
 
       <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-8">
         <div className="md:hidden flex flex-col justify-center items-center gap-6 mb-20">
-          <img src="/logo.png" className="size-28 rounded-full" />
+          <img src="/logo.png" className="size-28 rounded-full" alt="Logo" />
           <div className="text-sm leading-relaxed pt-2 text-center md:text-left">
             <p>République Algérienne Démocratique et Populaire</p>
             <p>Ministère de l'Habitat, de l'Urbanisme et de la Ville</p>
@@ -100,6 +115,14 @@ export default function LoginPage() {
           <h1 className="text-2xl font-semibold text-gray-800 mb-8">
             Connexion
           </h1>
+
+          {/* Error message display */}
+          {loginError && (
+            <div className="mb-6 p-4 border border-red-200 bg-red-50 rounded-md flex items-start gap-3 text-red-700">
+              <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+              <span>{loginError}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">

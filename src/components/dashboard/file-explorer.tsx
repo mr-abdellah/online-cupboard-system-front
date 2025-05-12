@@ -5,6 +5,7 @@ import BinderFiles from "./binder-files";
 import BinderImage from "@/assets/binder.png";
 import { useQuery } from "@tanstack/react-query";
 import { getCupboards } from "@/services/cupboard";
+import { useState } from "react";
 
 const FileExplorer = () => {
   const navigate = useNavigate();
@@ -13,6 +14,12 @@ const FileExplorer = () => {
   // Récupération des paramètres de l'URL
   const cupboardId = searchParams.get("cupboard_id");
   const binderId = searchParams.get("binder_id");
+  const query = searchParams.get("query") || "";
+  const fileType = searchParams.get("fileType") || "";
+
+  // Local state to track filter changes
+  const [searchQuery, setSearchQuery] = useState(query);
+  const [typeFilter, setTypeFilter] = useState(fileType);
 
   // Fetch cupboards data to find parent relationships
   const { data: cupboards } = useQuery({
@@ -34,8 +41,11 @@ const FileExplorer = () => {
 
   // Gestion de la sélection d'un élément
   const handleSelect = (id: string, type: "cupboard" | "binder") => {
+    const newParams = new URLSearchParams(searchParams);
+
     if (type === "cupboard") {
-      navigate(`/dashboard?cupboard_id=${id}`);
+      newParams.set("cupboard_id", id);
+      newParams.delete("binder_id");
     } else {
       // For binders, ensure we have the correct parent cupboard ID
       const currentCupboardId =
@@ -43,21 +53,76 @@ const FileExplorer = () => {
 
       if (currentCupboardId) {
         // If we already have a valid cupboardId, use it
-        navigate(`/dashboard?cupboard_id=${currentCupboardId}&binder_id=${id}`);
+        newParams.set("cupboard_id", currentCupboardId);
+        newParams.set("binder_id", id);
       } else {
         // Find the parent cupboard for this binder
         const parentCupboard = findParentCupboardForBinder(id);
 
         if (parentCupboard) {
-          navigate(
-            `/dashboard?cupboard_id=${parentCupboard.id}&binder_id=${id}`
-          );
+          newParams.set("cupboard_id", parentCupboard.id);
+          newParams.set("binder_id", id);
         } else {
           // Fallback if we can't find the parent (should be rare)
-          navigate(`/dashboard?binder_id=${id}`);
+          newParams.delete("cupboard_id");
+          newParams.set("binder_id", id);
         }
       }
     }
+
+    // Preserve search and filter params
+    if (query) newParams.set("query", query);
+    if (fileType) newParams.set("fileType", fileType);
+
+    navigate(`/dashboard?${newParams.toString()}`);
+  };
+
+  // Handle search and filter changes
+  const handleSearchChange = (newQuery: string) => {
+    setSearchQuery(newQuery);
+    updateUrlParams({ query: newQuery, fileType });
+  };
+
+  const handleFilterChange = (newFileType: string) => {
+    setTypeFilter(newFileType);
+    updateUrlParams({ query, fileType: newFileType });
+  };
+
+  // Update URL parameters without losing existing ones
+  const updateUrlParams = ({
+    query,
+    fileType,
+  }: {
+    query: string;
+    fileType: string;
+  }) => {
+    const newParams = new URLSearchParams(searchParams);
+
+    if (query) {
+      newParams.set("query", query);
+    } else {
+      newParams.delete("query");
+    }
+
+    if (fileType) {
+      newParams.set("fileType", fileType);
+    } else {
+      newParams.delete("fileType");
+    }
+
+    navigate(`/dashboard?${newParams.toString()}`, { replace: true });
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery("");
+    setTypeFilter("");
+
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete("query");
+    newParams.delete("fileType");
+
+    navigate(`/dashboard?${newParams.toString()}`, { replace: true });
   };
 
   return (
@@ -73,6 +138,11 @@ const FileExplorer = () => {
               : null
           }
           onSelect={handleSelect}
+          searchQuery={searchQuery}
+          onSearchChange={handleSearchChange}
+          typeFilter={typeFilter}
+          onFilterChange={handleFilterChange}
+          onClearFilters={clearFilters}
         />
       </div>
 
