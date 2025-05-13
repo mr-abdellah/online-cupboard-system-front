@@ -3,6 +3,7 @@ import axios from "axios";
 
 const api = axios.create({
   // baseURL: "https://ged-back.mr-abdellah.com/api",
+  // baseURL: "http://ged.local/api",
   baseURL: "http://127.0.0.1:8000/api",
   headers: {
     "Content-Type": "application/json",

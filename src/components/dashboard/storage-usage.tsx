@@ -223,20 +223,6 @@ const StorageUsage = () => {
                   {type.name}
                 </span>
               </div>
-
-              <div className="text-center mb-3">
-                <span className={`text-xl font-bold ${type.textColor}`}>
-                  {type.percentage}%
-                </span>
-              </div>
-
-              <div className="w-full bg-white bg-opacity-50 rounded-full h-2 mb-3">
-                <div
-                  className={`h-2 rounded-full ${type.color}`}
-                  style={{ width: `${type.percentage}%` }}
-                ></div>
-              </div>
-
               <div className="flex justify-between items-center mt-2 text-center">
                 <div className="w-1/2">
                   <span className="text-xs text-gray-500 block">Fichiers</span>

@@ -1,7 +1,9 @@
 "use client";
 
+import type React from "react";
+
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { FiSearch, FiX } from "react-icons/fi";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,43 +11,63 @@ import { Badge } from "@/components/ui/badge";
 
 const FileTypeFilter = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
 
   // Get current search query from URL
+  const searchParams = new URLSearchParams(location.search);
   const currentQuery = searchParams.get("query") || "";
+  const currentFileType = searchParams.get("fileType") || "";
 
   // Local state for search input
   const [searchQuery, setSearchQuery] = useState(currentQuery);
 
   // Update URL parameters
-  const updateUrlParams = (query: string) => {
-    const newParams = new URLSearchParams(searchParams);
+  const handleSearch = () => {
+    const newParams = new URLSearchParams();
 
-    if (query) {
-      newParams.set("query", query);
-    } else {
-      newParams.delete("query");
+    if (searchQuery) {
+      newParams.set("query", searchQuery);
     }
 
-    navigate(`/dashboard?${newParams.toString()}`, { replace: true });
+    if (currentFileType) {
+      newParams.set("fileType", currentFileType);
+    }
+
+    navigate(`/search?${newParams.toString()}`);
   };
 
-  // Handle search input changes with debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchQuery !== currentQuery) {
-        updateUrlParams(searchQuery);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery, currentQuery]);
+  // Handle search on Enter key
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
 
   // Clear search
   const clearSearch = () => {
     setSearchQuery("");
-    updateUrlParams("");
+    const newParams = new URLSearchParams(location.search);
+    newParams.delete("query");
+    navigate(`${location.pathname}?${newParams.toString()}`, { replace: true });
   };
+
+  // Clear file type filter
+  const clearFileTypeFilter = () => {
+    const newParams = new URLSearchParams(location.search);
+    newParams.delete("fileType");
+    navigate(`${location.pathname}?${newParams.toString()}`, { replace: true });
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    navigate(location.pathname, { replace: true });
+  };
+
+  // Update local state when URL changes
+  useEffect(() => {
+    setSearchQuery(currentQuery);
+  }, [currentQuery]);
 
   return (
     <div className="mb-6">
@@ -59,6 +81,7 @@ const FileTypeFilter = () => {
               placeholder="Rechercher des documents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
               className="pl-9 pr-4 py-2 w-full"
             />
             {searchQuery && (
@@ -71,30 +94,57 @@ const FileTypeFilter = () => {
             )}
           </div>
 
-          {currentQuery && (
+          <Button
+            onClick={handleSearch}
+            className="bg-[#3b5de7] hover:bg-[#2d4ccc] text-white"
+          >
+            Rechercher
+          </Button>
+
+          {(currentQuery || currentFileType) && (
             <Button
               variant="outline"
               size="sm"
-              onClick={clearSearch}
+              onClick={clearAllFilters}
               className="whitespace-nowrap"
             >
-              Effacer la recherche
+              Effacer tous les filtres
             </Button>
           )}
         </div>
 
-        {/* Active search filter display */}
-        {currentQuery && (
+        {/* Active filters display */}
+        {(currentQuery || currentFileType) && (
           <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary" className="flex items-center gap-1">
-              Recherche: {currentQuery}
-              <button
-                onClick={clearSearch}
-                className="ml-1 hover:text-gray-700"
-              >
-                <FiX size={14} />
-              </button>
-            </Badge>
+            {currentQuery && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Recherche: {currentQuery}
+                <button
+                  onClick={clearSearch}
+                  className="ml-1 hover:text-gray-700"
+                >
+                  <FiX size={14} />
+                </button>
+              </Badge>
+            )}
+
+            {currentFileType && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Type:{" "}
+                {currentFileType.includes(",")
+                  ? currentFileType
+                      .split(",")
+                      .map((t) => t.toUpperCase())
+                      .join(", ")
+                  : currentFileType.toUpperCase()}
+                <button
+                  onClick={clearFileTypeFilter}
+                  className="ml-1 hover:text-gray-700"
+                >
+                  <FiX size={14} />
+                </button>
+              </Badge>
+            )}
           </div>
         )}
       </div>

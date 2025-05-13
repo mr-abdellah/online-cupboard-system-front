@@ -13,6 +13,7 @@ import ProfilePage from "./pages/app/profile";
 import { withPermission } from "./hoc/with-permission";
 import AssignUserToCupboards from "./pages/app/assign-user-to-cupboards";
 import AssignUsersToCupboard from "./pages/app/assign-users-to-cupboard";
+import SearchPage from "./pages/app/search";
 
 const ProtectedUsersPage = withPermission(UsersPage, "can_view_users");
 const ProtectedUploadDocumentPage = withPermission(
@@ -23,6 +24,8 @@ const ProtectedDocumentPermissionsPage = withPermission(
   DocumentPermissionsPage,
   "can_upload_documents"
 );
+
+const ProtectedSearchPage = withPermission(SearchPage, "can_view_documents");
 
 const router = createBrowserRouter([
   {
@@ -47,6 +50,10 @@ const router = createBrowserRouter([
       {
         path: "users",
         element: <ProtectedUsersPage />,
+      },
+      {
+        path: "search",
+        element: <ProtectedSearchPage />,
       },
       {
         path: "users/assign-to-cupboards/:user_id",

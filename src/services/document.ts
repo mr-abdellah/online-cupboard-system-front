@@ -94,6 +94,49 @@ export interface CopyDocumentResponse {
   documents: DocumentResponse[];
 }
 
+export type FileCategory = "image" | "doc" | "pdf" | "excel" | "presentation";
+
+export interface DocumentSearchResponse {
+  type: string;
+  name: string;
+  size: string;
+  cupboard: string;
+  binder: string;
+  can_view: boolean;
+  permissions: Array<"view" | "edit" | "delete" | "download">;
+}
+
+export interface PaginatedResponse {
+  data: DocumentSearchResponse[];
+  pagination: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
+}
+
+// Updated search function with pagination support
+export async function searchDocuments(
+  searchQuery?: string,
+  fileType?: FileCategory,
+  page: number = 1,
+  perPage: number = 15
+): Promise<PaginatedResponse> {
+  const params: {
+    search?: string;
+    file_type?: FileCategory;
+    page: number;
+    per_page: number;
+  } = { page, per_page: perPage };
+
+  if (searchQuery) params.search = searchQuery;
+  if (fileType) params.file_type = fileType;
+
+  const response = await api.get("/documents/search", { params });
+  return response.data;
+}
+
 export async function getDocuments(): Promise<DocumentResponse[]> {
   try {
     const response = await api.get("/documents");
