@@ -59,7 +59,7 @@ const FileTypeFilterCards = () => {
       lightColor: "bg-orange-100",
     },
     {
-      name: "Autres",
+      name: "Tous les fichiers",
       key: "",
       icon: documentSvg,
       color: "bg-gray-500",

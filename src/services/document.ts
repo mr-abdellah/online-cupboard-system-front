@@ -97,6 +97,7 @@ export interface CopyDocumentResponse {
 export type FileCategory = "image" | "doc" | "pdf" | "excel" | "presentation";
 
 export interface DocumentSearchResponse {
+  id: string;
   type: string;
   name: string;
   size: string;
@@ -133,8 +134,7 @@ export async function searchDocuments(
   if (searchQuery) params.search = searchQuery;
   if (fileType) params.file_type = fileType;
 
-  const response = await api.get("/documents/search", { params });
-  return response.data;
+  return await api.get("/documents/search", { params });
 }
 
 export async function getDocuments(): Promise<DocumentResponse[]> {

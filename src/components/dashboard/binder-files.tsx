@@ -364,8 +364,8 @@ const BinderFiles = () => {
                 </div>
                 <div className="col-span-3 text-sm text-gray-500">
                   <div className="text-xs">
-                    {doc.tags && doc.tags.length > 0
-                      ? doc.tags.join(", ")
+                    {doc?.tags && doc?.tags?.length > 0
+                      ? doc?.tags?.join(", ")
                       : "Aucun tag"}
                   </div>
                 </div>

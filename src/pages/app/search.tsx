@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   searchDocuments,
   type FileCategory,
   type DocumentSearchResponse,
+  DocumentResponse,
+  downloadDocument,
 } from "@/services/document";
 import FileTypeFilter from "@/components/dashboard/file-type-filter";
 import FileTypeFilterCards from "@/components/dashboard/file-type-filter-cards";
@@ -30,6 +32,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { DeleteDocumentDialog } from "@/components/document/delete-document-dialog";
+import { UpdateDocumentDialog } from "@/components/document/update-document-dialog";
+import { DocumentPreviewSheet } from "@/components/document/document-preview-sheet";
+import { MoveDocumentDialog } from "@/components/document/move-document-dialog";
+import { CopyDocumentDialog } from "@/components/document/copy-document-dialog";
 
 // Import des icônes depuis le dossier assets
 import documentSvg from "@/assets/document.svg";
@@ -41,10 +48,23 @@ import presentationSvg from "@/assets/powerpoint.svg";
 import LockSvg from "@/assets/lock.svg";
 
 export default function SearchPage() {
+  const navigate = useNavigate();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const query = searchParams.get("query") || "";
   const fileType = searchParams.get("fileType") as FileCategory | null;
+  const binderId = searchParams.get("binder_id");
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] =
+    useState<DocumentResponse | null>(null);
+  const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
+    null
+  );
 
   const [page, setPage] = useState(1);
   const perPage = 15;
@@ -55,7 +75,7 @@ export default function SearchPage() {
   }, [query, fileType]);
 
   // Fetch search results
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, isSuccess } = useQuery({
     queryKey: ["documentSearch", query, fileType, page, perPage],
     queryFn: () => searchDocuments(query, fileType || undefined, page, perPage),
   });
@@ -103,40 +123,42 @@ export default function SearchPage() {
     }
   };
 
-  // Handle document actions
-  const handlePreviewDocument = (document: DocumentSearchResponse) => {
-    // Implement preview functionality
-    console.log("Preview document:", document);
+  const handleRedirectToPermission = (document_id: string) => {
+    navigate(`/document/${document_id}/permissions`);
   };
 
-  const handleDownloadDocument = (document: DocumentSearchResponse) => {
-    // Implement download functionality
-    console.log("Download document:", document);
+  const handleDeleteDocument = (document: any) => {
+    setSelectedDocument(document);
+    setDeleteDialogOpen(true);
   };
 
-  const handleEditPermissions = (document: DocumentSearchResponse) => {
-    // Implement permissions functionality
-    console.log("Edit permissions for document:", document);
+  const handleUpdateDocument = (document: any) => {
+    setSelectedDocument(document);
+    setUpdateDialogOpen(true);
   };
 
-  const handleEditDocument = (document: DocumentSearchResponse) => {
-    // Implement edit functionality
-    console.log("Edit document:", document);
+  const handleMoveDocument = (document: any) => {
+    setSelectedDocument(document);
+    setMoveDialogOpen(true);
   };
 
-  const handleMoveDocument = (document: DocumentSearchResponse) => {
-    // Implement move functionality
-    console.log("Move document:", document);
+  const handleCopyDocument = (document: any) => {
+    setSelectedDocument(document);
+    setCopyDialogOpen(true);
   };
 
-  const handleCopyDocument = (document: DocumentSearchResponse) => {
-    // Implement copy functionality
-    console.log("Copy document:", document);
+  const handlePreviewDocument = (document: any) => {
+    setSelectedDocumentId(document.id);
+    setPreviewSheetOpen(true);
   };
 
-  const handleDeleteDocument = (document: DocumentSearchResponse) => {
-    // Implement delete functionality
-    console.log("Delete document:", document);
+  const handleDownloadDocument = async (documentId: string) => {
+    try {
+      await downloadDocument(documentId);
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      // You could add a toast notification here for the error
+    }
   };
 
   // Handle pagination
@@ -145,70 +167,62 @@ export default function SearchPage() {
     window.scrollTo(0, 0);
   };
 
-  // État de chargement
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-white text-gray-800 font-sans">
-        <main className="mx-auto px-6 py-4">
-          <h1 className="text-2xl font-bold mb-6">Recherche de documents</h1>
+  const documents = data?.data || [];
+  const pagination = data?.pagination;
 
-          {/* Search and filter controls */}
-          <FileTypeFilter />
+  return (
+    <div className="min-h-screen bg-white text-gray-800 font-sans">
+      <main className="mx-auto px-6 py-4">
+        <h1 className="text-2xl font-bold mb-6">Recherche de documents</h1>
 
-          {/* File type filter cards */}
-          <div className="mb-6">
-            <div className="h-32 bg-gray-200 rounded-lg animate-pulse"></div>
-          </div>
+        {/* Search and filter controls */}
+        <FileTypeFilter />
 
-          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-            <div className="flex justify-between items-center mb-4">
-              <div className="h-7 bg-gray-200 rounded-md w-1/4 animate-pulse"></div>
-              <div className="h-7 bg-gray-200 rounded-md w-28 animate-pulse"></div>
+        {/* File type filter cards */}
+        <FileTypeFilterCards />
+
+        {isLoading && (
+          <>
+            {/* File type filter cards */}
+            <div className="mb-6">
+              <div className="h-32 bg-gray-200 rounded-lg animate-pulse"></div>
             </div>
-            <div className="border-t border-gray-200 pt-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-12 gap-4 py-4 border-b border-gray-100 items-center animate-pulse"
-                >
-                  <div className="col-span-4 flex items-center">
-                    <div className="w-8 h-8 bg-gray-200 rounded-md mr-3"></div>
-                    <div className="h-4 bg-gray-200 rounded w-32"></div>
+
+            <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+              <div className="flex justify-between items-center mb-4">
+                <div className="h-7 bg-gray-200 rounded-md w-1/4 animate-pulse"></div>
+                <div className="h-7 bg-gray-200 rounded-md w-28 animate-pulse"></div>
+              </div>
+              <div className="border-t border-gray-200 pt-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-12 gap-4 py-4 border-b border-gray-100 items-center animate-pulse"
+                  >
+                    <div className="col-span-4 flex items-center">
+                      <div className="w-8 h-8 bg-gray-200 rounded-md mr-3"></div>
+                      <div className="h-4 bg-gray-200 rounded w-32"></div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="h-4 bg-gray-200 rounded w-16"></div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="h-4 bg-gray-200 rounded w-24"></div>
+                    </div>
+                    <div className="col-span-3">
+                      <div className="h-4 bg-gray-200 rounded w-28"></div>
+                    </div>
+                    <div className="col-span-1 flex justify-end">
+                      <div className="h-6 w-6 bg-gray-200 rounded-full"></div>
+                    </div>
                   </div>
-                  <div className="col-span-2">
-                    <div className="h-4 bg-gray-200 rounded w-16"></div>
-                  </div>
-                  <div className="col-span-2">
-                    <div className="h-4 bg-gray-200 rounded w-24"></div>
-                  </div>
-                  <div className="col-span-3">
-                    <div className="h-4 bg-gray-200 rounded w-28"></div>
-                  </div>
-                  <div className="col-span-1 flex justify-end">
-                    <div className="h-6 w-6 bg-gray-200 rounded-full"></div>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
+          </>
+        )}
 
-  // État d'erreur
-  if (error) {
-    return (
-      <div className="min-h-screen bg-white text-gray-800 font-sans">
-        <main className="mx-auto px-6 py-4">
-          <h1 className="text-2xl font-bold mb-6">Recherche de documents</h1>
-
-          {/* Search and filter controls */}
-          <FileTypeFilter />
-
-          {/* File type filter cards */}
-          <FileTypeFilterCards />
-
+        {error && (
           <div className="bg-red-50 p-6 rounded-xl border border-red-100">
             <div className="flex items-center text-red-600 mb-2">
               <svg
@@ -229,382 +243,405 @@ export default function SearchPage() {
               réessayer.
             </p>
           </div>
-        </main>
-      </div>
-    );
-  }
+        )}
 
-  const documents = data?.data || [];
-  const pagination = data?.pagination;
-
-  return (
-    <div className="min-h-screen bg-white text-gray-800 font-sans">
-      <main className="mx-auto px-6 py-4">
-        <h1 className="text-2xl font-bold mb-6">Recherche de documents</h1>
-
-        {/* Search and filter controls */}
-        <FileTypeFilter />
-
-        {/* File type filter cards */}
-        <FileTypeFilterCards />
-
-        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">
-              Résultats de recherche
-              {pagination && (
-                <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({pagination.total} documents trouvés)
-                </span>
-              )}
-            </h3>
-          </div>
-
-          {documents.length === 0 ? (
-            <div className="text-center py-16 text-gray-500">
-              <img
-                src={documentSvg || "/placeholder.svg"}
-                alt="Aucun résultat"
-                className="mx-auto mb-2 w-12 h-12 opacity-40"
-              />
-              <p className="text-sm">
-                Aucun document trouvé pour cette recherche
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Essayez de modifier vos critères de recherche
-              </p>
+        {isSuccess && (
+          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Résultats de recherche
+                {pagination && (
+                  <span className="ml-2 text-sm font-normal text-gray-500">
+                    ({pagination.total} documents trouvés)
+                  </span>
+                )}
+              </h3>
             </div>
-          ) : (
-            <div className="border-t border-gray-200">
-              {/* En-tête de tableau */}
-              <div className="grid grid-cols-12 gap-4 py-2 border-b border-gray-200 text-sm text-gray-500">
-                <div className="col-span-4 flex items-center">
-                  <span>Nom</span>
-                  <button className="ml-1">
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="text-gray-400"
-                    >
-                      <path
-                        d="M6 9L12 15L18 9"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
 
-                <div className="col-span-2 flex items-center">
-                  <span>Type</span>
-                  <button className="ml-1">
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="text-gray-400"
-                    >
-                      <path
-                        d="M6 9L12 15L18 9"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="col-span-2 flex items-center">
-                  <span>Taille</span>
-                  <button className="ml-1">
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="text-gray-400"
-                    >
-                      <path
-                        d="M6 9L12 15L18 9"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="col-span-3 flex items-center">
-                  <span>Emplacement</span>
-                  <button className="ml-1">
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="text-gray-400"
-                    >
-                      <path
-                        d="M6 9L12 15L18 9"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="col-span-1 flex items-center"></div>
+            {documents.length === 0 ? (
+              <div className="text-center py-16 text-gray-500">
+                <img
+                  src={documentSvg || "/placeholder.svg"}
+                  alt="Aucun résultat"
+                  className="mx-auto mb-2 w-12 h-12 opacity-40"
+                />
+                <p className="text-sm">
+                  Aucun document trouvé pour cette recherche
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Essayez de modifier vos critères de recherche
+                </p>
               </div>
-
-              {/* Liste des fichiers */}
-              {documents.map((doc) => {
-                const canView = doc.can_view;
-                const canEdit = doc.permissions.includes("edit");
-                const canDelete = doc.permissions.includes("delete");
-                const canDownload = doc.permissions.includes("download");
-
-                return (
-                  <div
-                    key={`${doc.name}-${doc.cupboard}-${doc.binder}`}
-                    className={`grid grid-cols-12 gap-4 py-4 border-b border-gray-100 items-center ${
-                      !canView
-                        ? "opacity-60 cursor-not-allowed"
-                        : "cursor-pointer"
-                    }`}
-                    onClick={() => canView && handlePreviewDocument(doc)}
-                  >
-                    <div className="col-span-4 flex items-center">
-                      <div className="size-12 mr-3 flex items-center justify-center relative">
-                        <img
-                          src={getFileIcon(doc.type) || "/placeholder.svg"}
-                          alt={doc.type}
-                          className="w-full h-full object-contain"
+            ) : (
+              <div className="border-t border-gray-200">
+                {/* En-tête de tableau */}
+                <div className="grid grid-cols-12 gap-4 py-2 border-b border-gray-200 text-sm text-gray-500">
+                  <div className="col-span-4 flex items-center">
+                    <span>Nom</span>
+                    <button className="ml-1">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="text-gray-400"
+                      >
+                        <path
+                          d="M6 9L12 15L18 9"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
                         />
-                        {!canView && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100/60 rounded">
-                            <img
-                              src={LockSvg || "/placeholder.svg"}
-                              alt="Locked"
-                              className="w-4 h-4 opacity-80"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <span className="text-sm font-medium truncate">
-                        {doc.name}
-                      </span>
-                    </div>
+                      </svg>
+                    </button>
+                  </div>
 
-                    <div className="col-span-2 text-sm text-gray-600">
-                      {doc.type}
-                    </div>
+                  <div className="col-span-2 flex items-center">
+                    <span>Type</span>
+                    <button className="ml-1">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="text-gray-400"
+                      >
+                        <path
+                          d="M6 9L12 15L18 9"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
 
-                    <div className="col-span-2 text-sm text-gray-600">
-                      {doc.size}
-                    </div>
+                  <div className="col-span-2 flex items-center">
+                    <span>Taille</span>
+                    <button className="ml-1">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="text-gray-400"
+                      >
+                        <path
+                          d="M6 9L12 15L18 9"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
 
-                    <div className="col-span-3 text-sm text-gray-600">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{doc.cupboard}</span>
-                        <span className="text-xs text-gray-500">
-                          {doc.binder}
+                  <div className="col-span-3 flex items-center">
+                    <span>Emplacement</span>
+                    <button className="ml-1">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="text-gray-400"
+                      >
+                        <path
+                          d="M6 9L12 15L18 9"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="col-span-1 flex items-center"></div>
+                </div>
+
+                {/* Liste des fichiers */}
+                {documents.map((doc) => {
+                  const canView = doc.can_view;
+                  const canEdit = doc.permissions.includes("edit");
+                  const canDelete = doc.permissions.includes("delete");
+                  const canDownload = doc.permissions.includes("download");
+
+                  return (
+                    <div
+                      key={`${doc.name}-${doc.cupboard}-${doc.binder}`}
+                      className={`grid grid-cols-12 gap-4 py-4 border-b border-gray-100 items-center ${
+                        !canView
+                          ? "opacity-60 cursor-not-allowed"
+                          : "cursor-pointer"
+                      }`}
+                      onClick={() => canView && handlePreviewDocument(doc)}
+                    >
+                      <div className="col-span-4 flex items-center">
+                        <div className="size-12 mr-3 flex items-center justify-center relative">
+                          <img
+                            src={getFileIcon(doc.type) || "/placeholder.svg"}
+                            alt={doc.type}
+                            className="w-full h-full object-contain"
+                          />
+                          {!canView && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-100/60 rounded">
+                              <img
+                                src={LockSvg || "/placeholder.svg"}
+                                alt="Locked"
+                                className="w-4 h-4 opacity-80"
+                              />
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-sm font-medium truncate">
+                          {doc.name}
                         </span>
                       </div>
-                    </div>
 
-                    <div className="col-span-1 flex items-end justify-end relative">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          asChild
-                          onClick={(e) => e.stopPropagation()}
-                          disabled={!canView}
-                        >
-                          <button
-                            className={`text-gray-400 hover:text-gray-600 ${
-                              !canView ? "opacity-50 cursor-not-allowed" : ""
-                            }`}
+                      <div className="col-span-2 text-sm text-gray-600">
+                        {doc.type}
+                      </div>
+
+                      <div className="col-span-2 text-sm text-gray-600">
+                        {doc.size}
+                      </div>
+
+                      <div className="col-span-3 text-sm text-gray-600">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{doc.cupboard}</span>
+                          <span className="text-xs text-gray-500">
+                            {doc.binder}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="col-span-1 flex items-end justify-end relative">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            asChild
+                            onClick={(e) => e.stopPropagation()}
+                            disabled={!canView}
                           >
-                            <FiMoreVertical size={16} />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          {canView && (
-                            <DropdownMenuItem
-                              className="flex items-center cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handlePreviewDocument(doc);
-                              }}
+                            <button
+                              className={`text-gray-400 hover:text-gray-600 ${
+                                !canView ? "opacity-50 cursor-not-allowed" : ""
+                              }`}
                             >
-                              <FiEye className="mr-2" size={14} />
-                              <span>Aperçu</span>
-                            </DropdownMenuItem>
-                          )}
+                              <FiMoreVertical size={16} />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            {canView && (
+                              <DropdownMenuItem
+                                className="flex items-center cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePreviewDocument(doc);
+                                }}
+                              >
+                                <FiEye className="mr-2" size={14} />
+                                <span>Aperçu</span>
+                              </DropdownMenuItem>
+                            )}
 
-                          {canDownload && (
-                            <DropdownMenuItem
-                              className="flex items-center cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadDocument(doc);
-                              }}
-                            >
-                              <FiDownload className="mr-2" size={14} />
-                              <span>Télécharger</span>
-                            </DropdownMenuItem>
-                          )}
+                            {canDownload && (
+                              <DropdownMenuItem
+                                className="flex items-center cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownloadDocument(doc?.id);
+                                }}
+                              >
+                                <FiDownload className="mr-2" size={14} />
+                                <span>Télécharger</span>
+                              </DropdownMenuItem>
+                            )}
 
-                          {canEdit && (
-                            <>
-                              <DropdownMenuItem
-                                className="flex items-center cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditPermissions(doc);
-                                }}
-                              >
-                                <FiLock className="mr-2" size={14} />
-                                <span>Permissions</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="flex items-center cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditDocument(doc);
-                                }}
-                              >
-                                <FiEdit className="mr-2" size={14} />
-                                <span>Modifier</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="flex items-center cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMoveDocument(doc);
-                                }}
-                              >
-                                <FiFolder className="mr-2" size={14} />
-                                <span>Déplacer</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="flex items-center cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCopyDocument(doc);
-                                }}
-                              >
-                                <FiCopy className="mr-2" size={14} />
-                                <span>Copier</span>
-                              </DropdownMenuItem>
-                            </>
-                          )}
+                            {canEdit && (
+                              <>
+                                <DropdownMenuItem
+                                  className="flex items-center cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRedirectToPermission(doc?.id);
+                                  }}
+                                >
+                                  <FiLock className="mr-2" size={14} />
+                                  <span>Permissions</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="flex items-center cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateDocument(doc);
+                                  }}
+                                >
+                                  <FiEdit className="mr-2" size={14} />
+                                  <span>Modifier</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="flex items-center cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMoveDocument(doc);
+                                  }}
+                                >
+                                  <FiFolder className="mr-2" size={14} />
+                                  <span>Déplacer</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="flex items-center cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopyDocument(doc);
+                                  }}
+                                >
+                                  <FiCopy className="mr-2" size={14} />
+                                  <span>Copier</span>
+                                </DropdownMenuItem>
+                              </>
+                            )}
 
-                          {canDelete && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="flex items-center text-red-500 cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteDocument(doc);
-                                }}
-                              >
-                                <FiTrash2 className="mr-2" size={14} />
-                                <span>Supprimer</span>
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            {canDelete && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="flex items-center text-red-500 cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteDocument(doc);
+                                  }}
+                                >
+                                  <FiTrash2 className="mr-2" size={14} />
+                                  <span>Supprimer</span>
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {pagination && pagination.last_page > 1 && (
-            <div className="flex justify-center mt-6">
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page === 1}
-                >
-                  <FiChevronLeft size={16} />
-                </Button>
-
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: pagination.last_page }, (_, i) => i + 1)
-                    .filter(
-                      (p) =>
-                        p === 1 ||
-                        p === pagination.last_page ||
-                        (p >= page - 1 && p <= page + 1)
-                    )
-                    .map((p, i, arr) => {
-                      // Add ellipsis
-                      if (i > 0 && arr[i - 1] !== p - 1) {
-                        return (
-                          <div
-                            key={`ellipsis-${p}`}
-                            className="flex items-center space-x-1"
-                          >
-                            <span className="text-gray-500">...</span>
-                            <Button
-                              variant={p === page ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => handlePageChange(p)}
-                              className={p === page ? "bg-[#3b5de7]" : ""}
-                            >
-                              {p}
-                            </Button>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <Button
-                          key={p}
-                          variant={p === page ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handlePageChange(p)}
-                          className={p === page ? "bg-[#3b5de7]" : ""}
-                        >
-                          {p}
-                        </Button>
-                      );
-                    })}
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page === pagination.last_page}
-                >
-                  <FiChevronRight size={16} />
-                </Button>
+                  );
+                })}
               </div>
-            </div>
-          )}
-        </div>
+            )}
+
+            {/* Pagination */}
+            {pagination && pagination.last_page > 1 && (
+              <div className="flex justify-center mt-6">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={page === 1}
+                  >
+                    <FiChevronLeft size={16} />
+                  </Button>
+
+                  <div className="flex items-center space-x-1">
+                    {Array.from(
+                      { length: pagination.last_page },
+                      (_, i) => i + 1
+                    )
+                      .filter(
+                        (p) =>
+                          p === 1 ||
+                          p === pagination.last_page ||
+                          (p >= page - 1 && p <= page + 1)
+                      )
+                      .map((p, i, arr) => {
+                        // Add ellipsis
+                        if (i > 0 && arr[i - 1] !== p - 1) {
+                          return (
+                            <div
+                              key={`ellipsis-${p}`}
+                              className="flex items-center space-x-1"
+                            >
+                              <span className="text-gray-500">...</span>
+                              <Button
+                                variant={p === page ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handlePageChange(p)}
+                                className={p === page ? "bg-[#3b5de7]" : ""}
+                              >
+                                {p}
+                              </Button>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <Button
+                            key={p}
+                            variant={p === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange(p)}
+                            className={p === page ? "bg-[#3b5de7]" : ""}
+                          >
+                            {p}
+                          </Button>
+                        );
+                      })}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={page === pagination.last_page}
+                  >
+                    <FiChevronRight size={16} />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </main>
+
+      {/* Dialogs */}
+      <DeleteDocumentDialog
+        documentId={selectedDocument?.id || null}
+        documentTitle={selectedDocument?.title || null}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+      />
+
+      <UpdateDocumentDialog
+        document={selectedDocument}
+        open={updateDialogOpen}
+        onOpenChange={setUpdateDialogOpen}
+      />
+
+      <MoveDocumentDialog
+        documentId={selectedDocument?.id || null}
+        documentTitle={selectedDocument?.title || null}
+        currentBinderId={binderId}
+        open={moveDialogOpen}
+        onOpenChange={setMoveDialogOpen}
+      />
+
+      <CopyDocumentDialog
+        documentId={selectedDocument?.id || null}
+        documentTitle={selectedDocument?.title || null}
+        open={copyDialogOpen}
+        onOpenChange={setCopyDialogOpen}
+      />
+
+      <DocumentPreviewSheet
+        documentId={selectedDocumentId}
+        open={previewSheetOpen}
+        onOpenChange={setPreviewSheetOpen}
+      />
     </div>
   );
 }

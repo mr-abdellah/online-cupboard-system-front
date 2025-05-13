@@ -207,7 +207,10 @@ const StorageUsage = () => {
           {fileTypes.map((type) => (
             <div
               key={type.key}
-              className={`p-4 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200 ${type.lightColor} bg-opacity-10`}
+              className={`p-4 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200 ${type.lightColor} bg-opacity-10 cursor-pointer`}
+              onClick={() =>
+                (window.location.href = `/search?fileType=${type.key}`)
+              }
             >
               <div className="flex flex-col items-center mb-3">
                 <div

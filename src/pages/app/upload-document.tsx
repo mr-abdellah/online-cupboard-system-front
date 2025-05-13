@@ -194,6 +194,10 @@ export default function UploadDocumentPage() {
     setSelectedFile(file);
     setValue("file", file);
 
+    // Set the document title from the file name (without extension)
+    const fileName = file.name.replace(/\.[^/.]+$/, "");
+    setValue("title", fileName);
+
     // Créer un aperçu du fichier
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
