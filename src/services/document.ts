@@ -108,12 +108,14 @@ export interface DocumentSearchResponse {
 }
 
 export interface PaginatedResponse {
-  data: DocumentSearchResponse[];
-  pagination: {
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
+  data: {
+    data: DocumentSearchResponse[];
+    meta: {
+      current_page: number;
+      last_page: number;
+      per_page: number;
+      total: number;
+    };
   };
 }
 

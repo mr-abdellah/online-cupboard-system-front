@@ -167,8 +167,10 @@ export default function SearchPage() {
     window.scrollTo(0, 0);
   };
 
-  const documents = data?.data || [];
-  const pagination = data?.pagination;
+  const documents = data?.data?.data || [];
+  const pagination = data?.data?.meta;
+
+  console.log("documents", data);
 
   return (
     <div className="min-h-screen bg-white text-gray-800 font-sans">
