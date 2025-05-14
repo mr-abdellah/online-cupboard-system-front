@@ -8,7 +8,6 @@ import type { CupboardResponse } from "@/services/cupboard"; // Changé de Cupbo
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -208,23 +207,6 @@ export default function DocumentForm({
               </div>
             )}
           </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <Controller
-            name="is_searchable"
-            control={control}
-            render={({ field }) => (
-              <Switch
-                id="is_searchable"
-                checked={field.value}
-                onCheckedChange={field.onChange}
-              />
-            )}
-          />
-          <Label htmlFor="is_searchable" className="text-base">
-            Activer la recherche dans ce document
-          </Label>
         </div>
       </div>
 

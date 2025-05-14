@@ -28,7 +28,6 @@ export interface BinderResponse {
     tags: string[];
     binder_id: string;
     path: string;
-    is_searchable: boolean;
     is_public: boolean;
     permissions: ["view", "edit", "delete", "download"];
   }>;

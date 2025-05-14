@@ -83,11 +83,6 @@ const FileExplorer = () => {
     updateUrlParams({ query: newQuery, fileType });
   };
 
-  const handleFilterChange = (newFileType: string) => {
-    setTypeFilter(newFileType);
-    updateUrlParams({ query, fileType: newFileType });
-  };
-
   // Update URL parameters without losing existing ones
   const updateUrlParams = ({
     query,
@@ -141,7 +136,6 @@ const FileExplorer = () => {
           searchQuery={searchQuery}
           onSearchChange={handleSearchChange}
           typeFilter={typeFilter}
-          onFilterChange={handleFilterChange}
           onClearFilters={clearFilters}
         />
       </div>

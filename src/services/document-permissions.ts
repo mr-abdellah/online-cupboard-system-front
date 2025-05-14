@@ -19,7 +19,6 @@ export interface DocumentUserPermission {
   description: string | null;
   type: string;
   path: string;
-  is_searchable: boolean;
   is_public: boolean;
   tags: string[];
   binder_id: string;

@@ -5,7 +5,6 @@ interface DocumentUpdateRequest {
   title: string;
   description?: string;
   tags?: string[];
-  is_searchable?: boolean;
 }
 
 // Response interface for document
@@ -19,7 +18,6 @@ export interface DocumentResponse {
   binder_id: string;
   path: string;
   order: number;
-  is_searchable: boolean;
   created_at: string;
   updated_at: string;
   permissions?: Array<{
@@ -39,7 +37,6 @@ export interface ShowDocumentResponse {
   binder_id: string;
   path: string;
   order: number;
-  is_searchable: boolean;
   created_at: string;
   updated_at: string;
   permissions?: Array<string>;

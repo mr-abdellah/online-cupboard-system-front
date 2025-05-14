@@ -46,7 +46,6 @@ export default function UploadDocumentPage() {
       title: "",
       description: "",
       binder_id: binderIdParam || "",
-      is_searchable: true,
       tags: [],
     },
   });
@@ -262,7 +261,7 @@ export default function UploadDocumentPage() {
     if (data.description) formData.append("description", data.description);
     formData.append("binder_id", data.binder_id);
     formData.append("file", data.file);
-    formData.append("is_searchable", data.is_searchable ? "1" : "0");
+    formData.append("is_searchable", "1");
 
     if (data.tags && data.tags.length > 0) {
       data.tags.forEach((tag, index) => {

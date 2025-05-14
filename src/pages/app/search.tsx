@@ -6,7 +6,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   searchDocuments,
   type FileCategory,
-  type DocumentSearchResponse,
   DocumentResponse,
   downloadDocument,
 } from "@/services/document";
@@ -170,11 +169,9 @@ export default function SearchPage() {
   const documents = data?.data?.data || [];
   const pagination = data?.data?.meta;
 
-  console.log("documents", data);
-
   return (
     <div className="min-h-screen bg-white text-gray-800 font-sans">
-      <main className="mx-auto px-6 py-4">
+      <main className="container mx-auto px-6 py-4">
         <h1 className="text-2xl font-bold mb-6">Recherche de documents</h1>
 
         {/* Search and filter controls */}

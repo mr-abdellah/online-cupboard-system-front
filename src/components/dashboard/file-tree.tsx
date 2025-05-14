@@ -10,8 +10,6 @@ import {
   FiPlus,
   FiEdit,
   FiTrash2,
-  FiSearch,
-  FiFilter,
   FiFolder,
 } from "react-icons/fi";
 
@@ -21,12 +19,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
@@ -51,7 +45,7 @@ import { MoveBinderDialog } from "../binder/move-binder-dialog";
 import type { CupboardResponse } from "@/services/cupboard";
 import type { BinderResponse } from "@/services/binder";
 import { usePermission } from "@/hooks/usePermission";
-import { Lock, X } from "lucide-react";
+import { Lock } from "lucide-react";
 import { useNavigate } from "react-router";
 
 interface FileTreeProps {
@@ -60,19 +54,8 @@ interface FileTreeProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   typeFilter: string;
-  onFilterChange: (fileType: string) => void;
   onClearFilters: () => void;
 }
-
-// Document types for filtering
-const documentTypes = [
-  { value: "jpg,jpeg", label: "Images JPG" },
-  { value: "png", label: "Images PNG" },
-  { value: "pdf", label: "Documents PDF" },
-  { value: "doc,docx", label: "Documents Word" },
-  { value: "xls,xlsx", label: "Feuilles Excel" },
-  { value: "ppt,pptx", label: "Présentations PowerPoint" },
-];
 
 const FileTree = ({
   selectedItem,
@@ -80,7 +63,6 @@ const FileTree = ({
   searchQuery,
   onSearchChange,
   typeFilter,
-  onFilterChange,
   onClearFilters,
 }: FileTreeProps) => {
   const [expandedCupboards, setExpandedCupboards] = useState<
@@ -145,19 +127,6 @@ const FileTree = ({
       };
     });
   }, []);
-
-  // Handle filter selection
-  const handleFilterSelect = useCallback(
-    (value: string) => {
-      if (typeFilter === value) {
-        // If the same filter is clicked again, clear it
-        onFilterChange("");
-      } else {
-        onFilterChange(value);
-      }
-    },
-    [typeFilter, onFilterChange]
-  );
 
   // Fonctions pour ouvrir les dialogs
   const handleCreateCupboard = useCallback(() => {

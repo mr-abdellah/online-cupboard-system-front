@@ -29,7 +29,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import {
   displayDocument,
   getDocument,
@@ -451,24 +450,6 @@ export function DocumentPreviewSheet({
                         <p className="font-medium">
                           {formatDate(document.updated_at)}
                         </p>
-                      </div>
-                      <div className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                          Recherchable:
-                        </p>
-                        <div className="flex items-center">
-                          <div
-                            className={cn(
-                              "w-3 h-3 rounded-full mr-2",
-                              document.is_searchable
-                                ? "bg-green-500"
-                                : "bg-red-500"
-                            )}
-                          />
-                          <p className="font-medium">
-                            {document.is_searchable ? "Oui" : "Non"}
-                          </p>
-                        </div>
                       </div>
                     </div>
                   </div>

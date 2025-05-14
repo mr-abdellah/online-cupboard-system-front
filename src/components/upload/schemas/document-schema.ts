@@ -27,7 +27,6 @@ export const documentSchema = z.object({
       (file) => ACCEPTED_FILE_TYPES.includes(file.type),
       "Type de fichier non pris en charge. Utilisez JPG, PNG, PDF, DOC, DOCX, XLS, XLSX, PPT ou PPTX"
     ),
-  is_searchable: z.boolean(),
   tags: z.array(z.string()).optional(),
 });
 

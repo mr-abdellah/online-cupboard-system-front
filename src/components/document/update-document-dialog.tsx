@@ -20,7 +20,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   Form,
@@ -34,7 +33,6 @@ import {
 const formSchema = z.object({
   title: z.string().min(1, { message: "Le titre est requis" }),
   description: z.string().optional(),
-  is_searchable: z.boolean(),
   tags: z.array(z.string()),
   tagInput: z.string().optional(),
 });
@@ -57,7 +55,6 @@ export function UpdateDocumentDialog({
     defaultValues: {
       title: "",
       description: "",
-      is_searchable: true,
       tags: [],
       tagInput: "",
     },
@@ -74,7 +71,6 @@ export function UpdateDocumentDialog({
       form.reset({
         title: fetchedDoc.title,
         description: fetchedDoc.description ?? "",
-        is_searchable: fetchedDoc.is_searchable,
         tags: fetchedDoc.tags ?? [],
         tagInput: "",
       });
@@ -208,27 +204,6 @@ export function UpdateDocumentDialog({
                         </div>
                       )}
                     </>
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="is_searchable"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel>Document recherchable</FormLabel>
-                    <p className="text-sm text-gray-500">
-                      Permet de retrouver ce document via la recherche
-                    </p>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
                   </FormControl>
                 </FormItem>
               )}
